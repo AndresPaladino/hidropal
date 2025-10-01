@@ -296,7 +296,6 @@ if "last_deleted_rows" not in st.session_state:
 
 # --- Config inicial: subir CSV ---
 st.sidebar.image("logo_grande.svg", width=120,)
-st.sidebar.title("HidroPal", width="stretch")
 st.sidebar.default_expander = False
 
 if not os.path.exists(CSV_FILE):
@@ -387,7 +386,7 @@ with tab_datos:
             df_head_disp = df_head.drop(columns=["ID"]).copy()
             df_head_disp["FECHA"] = to_es_date_str(df_head_disp["FECHA"])
             st.caption("Últimos 10 registros:")
-            st.dataframe(df_head_disp, width='stretch', hide_index=True)
+            st.dataframe(df_head_disp, hide_index=True)
 
     # ---- Eliminar ----
     with subtab_eliminar:
