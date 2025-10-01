@@ -1,0 +1,7 @@
+streamlit==1.38.0
+pandas==2.2.2
+numpy==2.0.2
+matplotlib==3.9.2
+seaborn==0.13.2
+python-dateutil==2.9.0.post0
+pillow==10.4.0
