@@ -22,7 +22,7 @@ except:
 
 CSV_FILE = "datos_pozo.csv"
 TRASH_FILE = "datos_pozo_borrados.csv"
-st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg")
+st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed")
 
 # -------------------------
 # Paleta de colores consistente
@@ -296,8 +296,6 @@ if "last_deleted_rows" not in st.session_state:
 
 # --- Config inicial: subir CSV ---
 st.sidebar.image("logo_grande.svg", width=120,)
-st.sidebar.default_expander = False
-
 if not os.path.exists(CSV_FILE):
     st.sidebar.info("No existe un archivo de datos. Subí un CSV inicial (con comas).")
     uploaded_file = st.sidebar.file_uploader("Subir CSV inicial", type=["csv"])
