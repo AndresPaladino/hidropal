@@ -22,7 +22,7 @@ except:
 
 CSV_FILE = "datos_pozo.csv"
 TRASH_FILE = "datos_pozo_borrados.csv"
-st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed", layout="wide")
+st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed")
 
 # -------------------------
 # Paleta de colores consistente
