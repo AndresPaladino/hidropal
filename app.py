@@ -22,7 +22,7 @@ except:
 
 CSV_FILE = "datos_pozo.csv"
 TRASH_FILE = "datos_pozo_borrados.csv"
-st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed", layout="wide")
 
 # -------------------------
 # Paleta de colores consistente
@@ -384,7 +384,7 @@ with tab_datos:
             df_head_disp = df_head.drop(columns=["ID"]).copy()
             df_head_disp["FECHA"] = to_es_date_str(df_head_disp["FECHA"])
             st.caption("Últimos 10 registros:")
-            st.dataframe(df_head_disp, hide_index=True)
+            st.dataframe(df_head_disp, hide_index=True, use_container_width=True)
 
     # ---- Eliminar ----
     with subtab_eliminar:
@@ -506,7 +506,7 @@ with tab_analisis:
         st.subheader("Vista de datos")
         df_display = df.drop(columns=["ID"]).copy()
         df_display["FECHA"] = to_es_date_str(df_display["FECHA"])
-        st.dataframe(df_display, hide_index=True)
+        st.dataframe(df_display, hide_index=True, use_container_width=True)
 
        
         # --- Serie temporal
