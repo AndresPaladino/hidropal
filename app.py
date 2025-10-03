@@ -22,7 +22,7 @@ except:
 
 CSV_FILE = "datos_pozo.csv"
 TRASH_FILE = "datos_pozo_borrados.csv"
-st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed", layout="wide")
 
 # -------------------------
 # Paleta de colores consistente
@@ -189,6 +189,49 @@ def remove_from_trash_by_id(row_id: str):
     trash = trash[trash["ID"] != row_id].copy()
     trash.to_csv(TRASH_FILE, index=False)
 
+# -------------------------
+# Validación de datos de entrada
+# -------------------------
+def validate_input_data(fecha, nivel, lluvia, extraccion):
+    """
+    Valida y limpia datos de entrada.
+    Retorna: (datos_limpios_dict, lista_errores)
+    """
+    errors = []
+    
+    # Limpiar y validar FECHA
+    if fecha is None:
+        fecha = date.today()
+    if fecha > date.today():
+        errors.append("📅 La fecha no puede ser futura")
+    
+    # Validar NIVEL (obligatorio, > 0)
+    if nivel is None:
+        errors.append("💧 El nivel no puede ser vacío")
+    elif nivel <= 0:
+        errors.append("💧 El nivel debe ser mayor a 0")
+    
+    # Limpiar y validar LLUVIA
+    if lluvia is None:
+        lluvia = 0.0
+    elif lluvia < 0:
+        errors.append("🌧️ Lluvia no puede ser negativa")
+    
+    # Limpiar y validar EXTRACCIÓN
+    if extraccion is None:
+        extraccion = 0.0
+    elif extraccion < 0:
+        errors.append("🚰 Extracción no puede ser negativa")
+    
+    cleaned_data = {
+        "FECHA": fecha,
+        "NIVEL": nivel if nivel is not None and nivel > 0 else None,
+        "LLUVIA": lluvia,
+        "EXTRACCION": extraccion
+    }
+    
+    return cleaned_data, errors
+
 def restore_row_by_id(row_id: str):
     trash = load_trash()
     if trash.empty:
@@ -317,66 +360,128 @@ tab_datos, tab_analisis = st.tabs(["🧾 Datos", "📈 Análisis"])
 
 # ====== TAB DATOS ======
 with tab_datos:
-    subtab_cargar, subtab_eliminar, subtab_restaurar = st.tabs(["➕ Cargar", "🗑️ Eliminar", "♻️ Restaurar"])
+    subtab_cargar, subtab_modificar, subtab_eliminar, subtab_restaurar = st.tabs(["➕ Cargar", "✏️ Modificar", "🗑️ Eliminar", "♻️ Restaurar"])
 
     # ---- Cargar ----
     with subtab_cargar:
         st.subheader("Cargar nueva medición")
         
+        # Inicializar flag para resetear después de guardar
+        if "reset_after_save" not in st.session_state:
+            st.session_state.reset_after_save = False
+        
+        # Si acabamos de guardar, resetear todo
+        if st.session_state.reset_after_save:
+            st.session_state.fecha_cargar = None
+            st.session_state.nivel_input = None
+            st.session_state.lluvia_input = None
+            st.session_state.extraccion_input = None
+            st.session_state.current_fecha_key = None
+            st.session_state.reset_after_save = False
+            st.success("✨ Listo para cargar nueva medición")
+        
         # Pre-cargar datos existentes si hay registro para la fecha seleccionada
         df_all = load_data()
+        df_all["LLUVIA"] = df_all["LLUVIA"].fillna(0)
         
-        # Selector de fecha
-        fecha = st.date_input("Fecha", value=date.today(), max_value=date.today(), format="DD/MM/YYYY")
+        # Selector de fecha - usar session_state para valor por defecto
+        default_fecha = st.session_state.get("fecha_cargar", date.today())
+        fecha = st.date_input(
+            "Fecha", 
+            value=default_fecha, 
+            max_value=date.today(), 
+            format="DD/MM/YYYY",
+            key="fecha_cargar"
+        )
         
         # Buscar si existe un registro para esta fecha
-        fecha_dt = pd.to_datetime(fecha)
-        existing_row = df_all[df_all["FECHA"].dt.date == fecha_dt.date()]
-        is_editing = not existing_row.empty
-        
-        # Inicializar o actualizar valores cuando cambia la fecha
-        fecha_key = fecha.strftime("%Y%m%d")
-        if "current_fecha_key" not in st.session_state or st.session_state.current_fecha_key != fecha_key:
-            st.session_state.current_fecha_key = fecha_key
+        if fecha is not None:
+            fecha_dt = pd.to_datetime(fecha)
+            existing_row = df_all[df_all["FECHA"].dt.date == fecha_dt.date()]
+            is_editing = not existing_row.empty
             
-            if not existing_row.empty:
-                st.session_state.nivel_input = float(existing_row.iloc[0]["NIVEL"])
-                st.session_state.lluvia_input = float(existing_row.iloc[0]["LLUVIA"])
-                st.session_state.extraccion_input = float(existing_row.iloc[0]["EXTRACCION"])
-            else:
-                # Usar None para campos vacíos
-                st.session_state.nivel_input = None
-                st.session_state.lluvia_input = None
-                st.session_state.extraccion_input = None
-        
-        if is_editing:
-            st.info(f"ℹ️ Ya existen datos para {fecha.strftime('%d/%m/%Y')}. Puedes modificarlos.")
-            button_text = "📝 Modificar"
-        else:
-            button_text = "💾 Guardar"
-        
-        # Inputs de datos con keys vinculadas a session_state - value=None para campos vacíos
-        nivel = st.number_input("Nivel del agua (m)", value=st.session_state.nivel_input, format="%.2f", key="nivel_input")
-        lluvia = st.number_input("Lluvia caída (mm)", value=st.session_state.lluvia_input, format="%.2f", key="lluvia_input")
-        extraccion = st.number_input("Volumen extraído (lts)", value=st.session_state.extraccion_input, format="%.2f", key="extraccion_input")
-        
-        # Botón de guardar/modificar
-        submitted = st.button(button_text, type="primary", use_container_width=True)
-
-        if submitted:
-            # Si estamos editando, eliminar el registro viejo primero
-            if is_editing and not existing_row.empty:
-                old_id = existing_row.iloc[0]["ID"]
-                df_all = df_all[df_all["ID"] != old_id].reset_index(drop=True)
-                overwrite_data(df_all)
+            # Inicializar o actualizar valores cuando cambia la fecha
+            fecha_key = fecha.strftime("%Y%m%d")
+            if "current_fecha_key" not in st.session_state or st.session_state.current_fecha_key != fecha_key:
+                st.session_state.current_fecha_key = fecha_key
+                
+                if not existing_row.empty:
+                    st.session_state.nivel_input = float(existing_row.iloc[0]["NIVEL"])
+                    st.session_state.lluvia_input = float(existing_row.iloc[0]["LLUVIA"])
+                    st.session_state.extraccion_input = float(existing_row.iloc[0]["EXTRACCION"])
+                else:
+                    # Usar None para campos vacíos
+                    st.session_state.nivel_input = None
+                    st.session_state.lluvia_input = None
+                    st.session_state.extraccion_input = None
             
-            save_data({"FECHA": fecha, "NIVEL": nivel-0.17, "LLUVIA": lluvia, "EXTRACCION": extraccion})
+            # Mensaje diferenciado según si ya existen datos
             if is_editing:
-                st.toast("📝 Datos modificados correctamente", icon="✅")
+                # Mostrar card con datos actuales
+                st.success(f"✅ Datos del {fecha.strftime('%d/%m/%Y')} ya están guardados")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("💧 Nivel", f"{float(existing_row.iloc[0]['NIVEL']):.2f} m")
+                with col2:
+                    st.metric("🌧️ Lluvia", f"{float(existing_row.iloc[0]['LLUVIA']):.0f} mm")
+                with col3:
+                    st.metric("🚰 Extracción", f"{float(existing_row.iloc[0]['EXTRACCION']):.0f} lts")
+                
+                st.info("💡 Para cargar datos de otro día, selecciona una fecha diferente arriba")
+                
+                # Botón para ir a modificar (placeholder por ahora)
+                if st.button("✏️ Modificar estos datos", type="secondary"):
+                    # Preseleccionar este registro en la pestaña "Modificar"
+                    try:
+                        st.session_state.registro_a_modificar = str(existing_row.iloc[0]["ID"]) if "ID" in existing_row.columns else None
+                    except Exception:
+                        st.session_state.registro_a_modificar = None
+                    st.toast("✏️ Listo: cambia a la pestaña 'Modificar' para editar este registro.")
+                
             else:
-                st.toast("✅ Datos guardados correctamente", icon="✅")
-            st.balloons()
-            st.rerun()
+                # No hay datos, permitir carga
+                button_text = "💾 Guardar"
+                # Inicializar los valores en session_state si no existen
+                if "nivel_input" not in st.session_state:
+                    st.session_state.nivel_input = 0.0
+                if "lluvia_input" not in st.session_state:
+                    st.session_state.lluvia_input = 0.0
+                if "extraccion_input" not in st.session_state:
+                    st.session_state.extraccion_input = 0.0
+                
+                # Inputs de datos con keys vinculadas a session_state
+                nivel = st.number_input("Nivel del agua (m)", value=st.session_state.nivel_input, format="%.2f", key="nivel_input")
+                lluvia = st.number_input("Lluvia caída (mm)", value=st.session_state.lluvia_input, format="%.2f", key="lluvia_input")
+                extraccion = st.number_input("Volumen extraído (lts)", value=st.session_state.extraccion_input, format="%.2f", key="extraccion_input")
+                
+                # Botón de guardar
+                submitted = st.button(button_text, type="primary")
+
+                if submitted:
+                    # Validar datos antes de guardar
+                    cleaned_data, errors = validate_input_data(fecha, nivel, lluvia, extraccion)
+                    
+                    if errors:
+                        # Mostrar errores de forma compacta
+                        error_msg = " • ".join(errors)
+                        st.error(f"⚠️ {error_msg}")
+                    else:
+                        # Datos válidos, guardar
+                        save_data({
+                            "FECHA": cleaned_data["FECHA"], 
+                            "NIVEL": cleaned_data["NIVEL"] - 0.17, 
+                            "LLUVIA": cleaned_data["LLUVIA"], 
+                            "EXTRACCION": cleaned_data["EXTRACCION"]
+                        })
+                        st.toast("✅ Datos guardados correctamente", icon="✅")
+                        st.balloons()
+                        # Marcar para resetear en próximo rerun
+                        st.session_state.reset_after_save = True
+                        st.rerun()
+        else:
+            st.info("📅 Selecciona una fecha para comenzar")
+
 
         # Vista rápida de los últimos registros
         df_head = load_data().sort_values("FECHA", ascending=False).head(10)
@@ -385,6 +490,116 @@ with tab_datos:
             df_head_disp["FECHA"] = to_es_date_str(df_head_disp["FECHA"])
             st.caption("Últimos 10 registros:")
             st.dataframe(df_head_disp, hide_index=True, use_container_width=True)
+
+    # ---- Modificar ----
+    with subtab_modificar:
+        st.subheader("Modificar una medición existente")
+        
+        df_all = load_data().sort_values("FECHA", ascending=False)
+        
+        if df_all.empty:
+            st.info("⚠️ No hay datos para modificar. Carga datos primero en la pestaña 'Cargar'.")
+        else:
+            # Construir selector con formato legible
+            df_disp = df_all.copy()
+            df_disp["FECHA_STR"] = to_es_date_str(df_disp["FECHA"])
+            opciones = [
+                f"{row['FECHA_STR']} | Nivel={row['NIVEL']:.2f}m | Lluvia={row['LLUVIA']:.0f}mm | Extracción={row['EXTRACCION']:.0f}lts"
+                for _, row in df_disp.iterrows()
+            ]
+            
+            # Mapeo de opción a ID y viceversa
+            opciones_to_id = {
+                f"{row['FECHA_STR']} | Nivel={row['NIVEL']:.2f}m | Lluvia={row['LLUVIA']:.0f}mm | Extracción={row['EXTRACCION']:.0f}lts": row['ID']
+                for _, row in df_disp.iterrows()
+            }
+            id_to_opciones = {v: k for k, v in opciones_to_id.items()}
+            
+            # Detectar si venimos de "Cargar" con un registro pre-seleccionado
+            default_index = None
+            if "registro_a_modificar" in st.session_state and st.session_state.registro_a_modificar:
+                id_preseleccionado = st.session_state.registro_a_modificar
+                if id_preseleccionado in id_to_opciones:
+                    opcion_preseleccionada = id_to_opciones[id_preseleccionado]
+                    if opcion_preseleccionada in opciones:
+                        # Fijar el valor del selectbox directamente para respetar la selección
+                        st.session_state["modificar_selectbox"] = opcion_preseleccionada
+                        default_index = opciones.index(opcion_preseleccionada)
+                # Limpiar el flag después de usarlo
+                st.session_state.registro_a_modificar = None
+            
+            seleccion = st.selectbox(
+                "Selecciona el registro a modificar:", 
+                opciones, 
+                index=default_index,
+                placeholder="Selecciona un registro",
+                key="modificar_selectbox"
+            )
+            
+            if seleccion:
+                # Obtener el registro seleccionado
+                sel_id = opciones_to_id[seleccion]
+                registro = df_all[df_all["ID"] == sel_id].iloc[0]
+                
+                # Mostrar card con datos actuales
+                st.info(f"📝 Modificando registro del {to_es_date_str(pd.Series([registro['FECHA']])).iloc[0]}")
+                
+                # Inputs con valores pre-cargados
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    nuevo_nivel = st.number_input(
+                        "Nivel del agua (m)", 
+                        value=float(registro["NIVEL"]),
+                        format="%.2f",
+                        key="modificar_nivel"
+                    )
+                    st.caption("Si no cambiás el nivel, se conserva igual. Si ingresás un valor medido nuevo, se aplicará ajuste +0.17 al guardar.")
+                
+                with col2:
+                    nueva_lluvia = st.number_input(
+                        "Lluvia caída (mm)", 
+                        value=None if registro["LLUVIA"] == 0 else float(registro["LLUVIA"])    ,
+                        format="%.2f",
+                        key="modificar_lluvia"
+                    )
+                
+                with col3:
+                    nueva_extraccion = st.number_input(
+                        "Volumen extraído (lts)", 
+                        value=None if registro["EXTRACCION"] == 0 else float(registro["EXTRACCION"]),
+                        format="%.2f",
+                        key="modificar_extraccion"
+                    )
+                
+                # Mantener fecha original (no se permite modificarla)
+                fecha_actual = pd.to_datetime(registro["FECHA"]).date()
+                
+                # Botón de modificar
+                if st.button("💾 Guardar cambios", type="primary", use_container_width=True):
+                    # Validar datos (fecha fija: no se permite modificarla)
+                    cleaned_data, errors = validate_input_data(
+                        fecha_actual,
+                        nuevo_nivel,
+                        nueva_lluvia,
+                        nueva_extraccion
+                    )
+                    if errors:
+                        error_msg = " • ".join(errors)
+                        st.error(f"⚠️ {error_msg}")
+                    else:
+                        # Mantener misma fecha, solo actualizar valores
+                        # Ajuste de nivel solo si el usuario lo cambió
+                        nivel_original = float(registro["NIVEL"])
+                        nivel_input = float(cleaned_data["NIVEL"]) if cleaned_data["NIVEL"] is not None else nivel_original
+                        cambio_nivel = not np.isclose(nivel_input, nivel_original, atol=1e-6)
+                        nivel_final = (nivel_input - 0.17) if cambio_nivel else nivel_original
+                        df_all.loc[df_all["ID"] == sel_id, "NIVEL"] = nivel_final
+                        df_all.loc[df_all["ID"] == sel_id, "LLUVIA"] = cleaned_data["LLUVIA"]
+                        df_all.loc[df_all["ID"] == sel_id, "EXTRACCION"] = cleaned_data["EXTRACCION"]
+                        overwrite_data(df_all)
+                        st.toast("✅ Registro modificado correctamente", icon="✅")
+                        st.rerun()
 
     # ---- Eliminar ----
     with subtab_eliminar:
@@ -403,10 +618,10 @@ with tab_datos:
 
             col1, col2 = st.columns([1,1])
             with col1:
-                eliminar = st.button("Eliminar registro", type="primary", use_container_width=True, disabled=(seleccion is None))
+                eliminar = st.button("Eliminar registro", type="primary", disabled=(seleccion is None))
             with col2:
-                deshacer = st.button("Deshacer último borrado", type="secondary", use_container_width=True)
-            
+                deshacer = st.button("Deshacer último borrado", type="secondary")
+
             if eliminar:
                 if seleccion is None:
                     st.error("⚠️ Debes seleccionar un registro primero.")
@@ -473,9 +688,9 @@ with tab_datos:
             seleccion_trash = st.selectbox("Seleccioná un registro de la Papelera:", opciones_trash)
             colr1, colr2 = st.columns([1,3])
             with colr1:
-                restore_btn = st.button("Restaurar", type="primary", use_container_width=True)
+                restore_btn = st.button("Restaurar", type="primary")
             with colr2:
-                purge_btn = st.button("Vaciar Papelera (borra definitivamente)", use_container_width=True)
+                purge_btn = st.button("Vaciar Papelera (borra definitivamente)")
 
             if restore_btn and seleccion_trash:
                 sel_id = seleccion_trash.split(" - ")[0].strip()
