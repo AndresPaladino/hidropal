@@ -40,6 +40,10 @@ def _gh_cfg():
         branch = sec.get("GITHUB_BRANCH", "master")
         data_path = sec.get("GITHUB_DATA_PATH", CSV_FILE)
         trash_path = sec.get("GITHUB_TRASH_PATH", TRASH_FILE)
+        author_name = sec.get("GITHUB_COMMIT_AUTHOR_NAME")
+        author_email = sec.get("GITHUB_COMMIT_AUTHOR_EMAIL")
+        committer_name = sec.get("GITHUB_COMMIT_COMMITTER_NAME", author_name)
+        committer_email = sec.get("GITHUB_COMMIT_COMMITTER_EMAIL", author_email)
         if token and repo:
             return {
                 "token": token,
@@ -47,6 +51,14 @@ def _gh_cfg():
                 "branch": branch,
                 "data_path": data_path,
                 "trash_path": trash_path,
+                "author": {
+                    "name": author_name,
+                    "email": author_email,
+                } if author_name and author_email else None,
+                "committer": {
+                    "name": committer_name,
+                    "email": committer_email,
+                } if committer_name and committer_email else None,
             }
     except Exception:
         pass
@@ -98,6 +110,11 @@ def gh_put_file(path: str, content_str: str, message: str, sha: str | None = Non
         "content": base64.b64encode(content_str.encode("utf-8")).decode("ascii"),
         "branch": cfg["branch"],
     }
+    # Autor/Committer opcional (para atribuir a un bot y no al usuario)
+    if cfg.get("author"):
+        payload["author"] = cfg["author"]
+    if cfg.get("committer"):
+        payload["committer"] = cfg["committer"]
     if sha:
         payload["sha"] = sha
     r = requests.put(url, headers=_gh_headers(cfg["token"]), json=payload, timeout=20)
@@ -497,6 +514,12 @@ with st.sidebar.expander("Diagnóstico GitHub"):
         st.write("Archivo datos:", cfg.get("data_path"))
         st.write("Archivo papelera:", cfg.get("trash_path"))
         st.write("Token presente:", "sí" if bool(cfg.get("token")) else "no")
+        author = cfg.get("author")
+        committer = cfg.get("committer")
+        if author:
+            st.write("Author:", f"{author.get('name')} <{author.get('email')}>")
+        if committer:
+            st.write("Committer:", f"{committer.get('name')} <{committer.get('email')}>")
         # Mostrar claves presentes (sin revelar valores) para confirmar nombres correctos
         try:
             sec = st.secrets.get("github", st.secrets)
@@ -520,6 +543,40 @@ with st.sidebar.expander("Diagnóstico GitHub"):
                 st.error(f"{type(e).__name__}: {e}")
     else:
         st.info("No se detectó configuración de GitHub en secrets.")
+
+# -------------------------
+# Acciones rápidas: Descargar y Actualizar
+# -------------------------
+st.sidebar.markdown("---")
+st.sidebar.caption("Acciones")
+
+# Descargar CSV principal
+csv_bytes = None
+if destination_exists(CSV_FILE):
+    try:
+        if gh_enabled():
+            content, _ = gh_get_file(CSV_FILE)  # lee desde rama
+            if content is not None:
+                csv_bytes = content.encode("utf-8")
+        else:
+            with open(CSV_FILE, "rb") as f:
+                csv_bytes = f.read()
+    except Exception:
+        csv_bytes = None
+
+st.sidebar.download_button(
+    label="⬇️ Descargar CSV",
+    data=csv_bytes if csv_bytes is not None else b"",
+    file_name=CSV_FILE,
+    mime="text/csv",
+    disabled=(csv_bytes is None)
+)
+
+# Botón de actualizar datos (limpia pin de SHA y recarga)
+if st.sidebar.button("🔄 Actualizar datos"):
+    if "_gh_last_ref_map" in st.session_state:
+        del st.session_state["_gh_last_ref_map"]
+    st.rerun()
 
 # -------------------------
 # NAVBAR con tabs
