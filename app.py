@@ -8,6 +8,9 @@ from datetime import date
 import os
 import locale
 import hashlib
+import base64
+import io
+import requests
 
 # -------------------------
 # Locale (opcional)
@@ -23,6 +26,109 @@ except:
 CSV_FILE = "datos_pozo.csv"
 TRASH_FILE = "datos_pozo_borrados.csv"
 st.set_page_config(page_title="Hidropal", page_icon="logo_pozo.svg", initial_sidebar_state="collapsed", layout="wide")
+
+# -------------------------
+# Almacenamiento remoto (GitHub) opcional
+# -------------------------
+def _gh_cfg():
+    """Lee configuración de GitHub desde st.secrets. Retorna dict o None si no está configurado."""
+    try:
+        # Permitir dos formatos: secretos planos o anidados en 'github'
+        sec = st.secrets.get("github", st.secrets)
+        token = sec.get("GITHUB_TOKEN")
+        repo = sec.get("GITHUB_REPO")  # formato: 'owner/repo'
+        branch = sec.get("GITHUB_BRANCH", "master")
+        data_path = sec.get("GITHUB_DATA_PATH", CSV_FILE)
+        trash_path = sec.get("GITHUB_TRASH_PATH", TRASH_FILE)
+        if token and repo:
+            return {
+                "token": token,
+                "repo": repo,
+                "branch": branch,
+                "data_path": data_path,
+                "trash_path": trash_path,
+            }
+    except Exception:
+        pass
+    return None
+
+def gh_enabled() -> bool:
+    return _gh_cfg() is not None
+
+def _gh_headers(token: str):
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "hidropal-app"
+    }
+
+def _gh_contents_url(repo: str, path: str) -> str:
+    owner, name = repo.split("/")
+    return f"https://api.github.com/repos/{owner}/{name}/contents/{path}"
+
+def gh_get_file(path: str):
+    """Obtiene contenido (str) y sha del archivo en GitHub. Retorna (None, None) si no existe."""
+    cfg = _gh_cfg()
+    if not cfg:
+        return None, None
+    url = _gh_contents_url(cfg["repo"], path)
+    params = {"ref": cfg["branch"]}
+    r = requests.get(url, headers=_gh_headers(cfg["token"]), params=params, timeout=20)
+    if r.status_code == 404:
+        return None, None
+    r.raise_for_status()
+    data = r.json()
+    content_b64 = data.get("content", "")
+    if data.get("encoding") == "base64" and content_b64:
+        content_bytes = base64.b64decode(content_b64)
+        return content_bytes.decode("utf-8"), data.get("sha")
+    return None, data.get("sha")
+
+def gh_put_file(path: str, content_str: str, message: str, sha: str | None = None):
+    """Crea/actualiza archivo en GitHub (Contents API)."""
+    cfg = _gh_cfg()
+    if not cfg:
+        return False
+    url = _gh_contents_url(cfg["repo"], path)
+    payload = {
+        "message": message,
+        "content": base64.b64encode(content_str.encode("utf-8")).decode("ascii"),
+        "branch": cfg["branch"],
+    }
+    if sha:
+        payload["sha"] = sha
+    r = requests.put(url, headers=_gh_headers(cfg["token"]), json=payload, timeout=20)
+    if r.status_code in (200, 201):
+        return True
+    # En caso de conflicto por SHA, devolver False para que el caller reintente
+    return False
+
+def destination_exists(path: str) -> bool:
+    if gh_enabled():
+        content, _ = gh_get_file(path)
+        return content is not None
+    return os.path.exists(path)
+
+def read_csv_from_destination(path: str) -> pd.DataFrame:
+    if gh_enabled():
+        content, _ = gh_get_file(path)
+        if content is None:
+            raise FileNotFoundError(path)
+        return pd.read_csv(io.StringIO(content))
+    return pd.read_csv(path)
+
+def write_csv_to_destination(df: pd.DataFrame, path: str, commit_message: str) -> bool:
+    if gh_enabled():
+        # Leer SHA actual (si existe) para update seguro
+        _, sha = gh_get_file(path)
+        csv_buf = io.StringIO()
+        df.to_csv(csv_buf, index=False)
+        ok = gh_put_file(path, csv_buf.getvalue(), commit_message, sha)
+        return ok
+    else:
+        df.to_csv(path, index=False)
+        return True
 
 # -------------------------
 # Paleta de colores consistente
@@ -122,7 +228,7 @@ def ensure_ids(df: pd.DataFrame) -> pd.DataFrame:
 # -------------------------
 def load_data() -> pd.DataFrame:
     try:
-        df = pd.read_csv(CSV_FILE)  # CSV con comas
+        df = read_csv_from_destination(CSV_FILE)  # CSV con comas
         df = normalize_columns(df)
         if "FECHA" in df.columns:
             df["FECHA"] = ensure_datetime_es(df["FECHA"])
@@ -146,7 +252,7 @@ def save_data(new_row: dict):
     if "FECHA" in df.columns:
         df["FECHA"] = ensure_datetime_es(df["FECHA"]).dt.strftime(DATE_OUT_FMT)
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-    df.to_csv(CSV_FILE, index=False)
+    write_csv_to_destination(df, CSV_FILE, commit_message=f"chore(data): add row {row['FECHA']}")
 
 def overwrite_data(df: pd.DataFrame):
     """Guarda un DataFrame completo aplicando formato dd/mm/aaaa a FECHA."""
@@ -154,14 +260,14 @@ def overwrite_data(df: pd.DataFrame):
         df = df.copy()
         df["FECHA"] = ensure_datetime_es(df["FECHA"]).dt.strftime(DATE_OUT_FMT)
     df = ensure_ids(df)
-    df.to_csv(CSV_FILE, index=False)
+    write_csv_to_destination(df, CSV_FILE, commit_message="chore(data): overwrite data")
 
 # -------------------------
 # Papelera (borrados)
 # -------------------------
 def load_trash() -> pd.DataFrame:
     try:
-        df = pd.read_csv(TRASH_FILE)
+        df = read_csv_from_destination(TRASH_FILE)
         df = normalize_columns(df)
         # ID puede venir o no; si no, lo recalculamos
         if "FECHA" in df.columns:
@@ -182,12 +288,12 @@ def append_to_trash(rows: pd.DataFrame):
     trash = pd.concat([trash, rows], ignore_index=True)
     # Evitar duplicados por ID en la papelera
     trash = trash.drop_duplicates(subset=["ID"], keep="first")
-    trash.to_csv(TRASH_FILE, index=False)
+    write_csv_to_destination(trash, TRASH_FILE, commit_message="chore(trash): append rows")
 
 def remove_from_trash_by_id(row_id: str):
     trash = load_trash()
     trash = trash[trash["ID"] != row_id].copy()
-    trash.to_csv(TRASH_FILE, index=False)
+    write_csv_to_destination(trash, TRASH_FILE, commit_message="chore(trash): remove row")
 
 # -------------------------
 # Validación de datos de entrada
@@ -260,7 +366,7 @@ def restore_row_by_id(row_id: str):
     if "FECHA" in df.columns:
         df["FECHA"] = ensure_datetime_es(df["FECHA"]).dt.strftime(DATE_OUT_FMT)
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    df.to_csv(CSV_FILE, index=False)
+    write_csv_to_destination(df, CSV_FILE, commit_message="chore(data): restore row from trash")
     # Quitar de papelera
     remove_from_trash_by_id(new_row["ID"])
     return True, "Registro restaurado."
@@ -339,7 +445,7 @@ if "last_deleted_rows" not in st.session_state:
 
 # --- Config inicial: subir CSV ---
 st.sidebar.image("logo_grande.svg", width=120,)
-if not os.path.exists(CSV_FILE):
+if not destination_exists(CSV_FILE):
     st.sidebar.info("No existe un archivo de datos. Subí un CSV inicial (con comas).")
     uploaded_file = st.sidebar.file_uploader("Subir CSV inicial", type=["csv"])
     if uploaded_file:
@@ -348,7 +454,7 @@ if not os.path.exists(CSV_FILE):
         if "FECHA" in df_init.columns:
             df_init["FECHA"] = ensure_datetime_es(df_init["FECHA"]).dt.strftime(DATE_OUT_FMT)
         df_init = ensure_ids(df_init)
-        df_init.to_csv(CSV_FILE, index=False)
+        write_csv_to_destination(df_init, CSV_FILE, commit_message="chore(data): initial upload")
         st.sidebar.success("✅ Archivo inicial cargado correctamente.")
 else:
     st.sidebar.success("Usando archivo existente")
