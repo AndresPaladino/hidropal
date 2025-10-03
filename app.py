@@ -138,6 +138,15 @@ def write_csv_to_destination(df: pd.DataFrame, path: str, commit_message: str) -
             ref_map[path] = commit_sha
             st.session_state["_gh_last_ref_map"] = ref_map
             return True
+        # Reintento: obtener SHA actualizado y volver a intentar una vez (posibles conflictos/concurrencia)
+        _, sha2 = gh_get_file(path)
+        if sha2 and sha2 != sha:
+            commit_sha2 = gh_put_file(path, csv_buf.getvalue(), commit_message + " (retry)", sha2)
+            if commit_sha2:
+                ref_map = st.session_state.get("_gh_last_ref_map", {})
+                ref_map[path] = commit_sha2
+                st.session_state["_gh_last_ref_map"] = ref_map
+                return True
         return False
     else:
         df.to_csv(path, index=False)
@@ -250,7 +259,7 @@ def load_data() -> pd.DataFrame:
     except FileNotFoundError:
         return pd.DataFrame(columns=["FECHA", "NIVEL", "LLUVIA", "EXTRACCION", "ID"])
 
-def save_data(new_row: dict):
+def save_data(new_row: dict) -> bool:
     df = load_data()
     # Normalizar fecha a dd/mm/aaaa
     fecha_fmt = ensure_datetime_es(pd.Series([new_row.get("FECHA")])).dt.strftime(DATE_OUT_FMT).iloc[0]
@@ -265,15 +274,15 @@ def save_data(new_row: dict):
     if "FECHA" in df.columns:
         df["FECHA"] = ensure_datetime_es(df["FECHA"]).dt.strftime(DATE_OUT_FMT)
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-    write_csv_to_destination(df, CSV_FILE, commit_message=f"chore(data): add row {row['FECHA']}")
+    return write_csv_to_destination(df, CSV_FILE, commit_message=f"chore(data): add row {row['FECHA']}")
 
-def overwrite_data(df: pd.DataFrame):
+def overwrite_data(df: pd.DataFrame) -> bool:
     """Guarda un DataFrame completo aplicando formato dd/mm/aaaa a FECHA."""
     if "FECHA" in df.columns:
         df = df.copy()
         df["FECHA"] = ensure_datetime_es(df["FECHA"]).dt.strftime(DATE_OUT_FMT)
     df = ensure_ids(df)
-    write_csv_to_destination(df, CSV_FILE, commit_message="chore(data): overwrite data")
+    return write_csv_to_destination(df, CSV_FILE, commit_message="chore(data): overwrite data")
 
 # -------------------------
 # Papelera (borrados)
@@ -292,7 +301,7 @@ def load_trash() -> pd.DataFrame:
     except FileNotFoundError:
         return pd.DataFrame(columns=["FECHA", "NIVEL", "LLUVIA", "EXTRACCION", "ID"])
 
-def append_to_trash(rows: pd.DataFrame):
+def append_to_trash(rows: pd.DataFrame) -> bool:
     trash = load_trash()
     # Asegurar FECHA string
     rows = rows.copy()
@@ -301,12 +310,12 @@ def append_to_trash(rows: pd.DataFrame):
     trash = pd.concat([trash, rows], ignore_index=True)
     # Evitar duplicados por ID en la papelera
     trash = trash.drop_duplicates(subset=["ID"], keep="first")
-    write_csv_to_destination(trash, TRASH_FILE, commit_message="chore(trash): append rows")
+    return write_csv_to_destination(trash, TRASH_FILE, commit_message="chore(trash): append rows")
 
-def remove_from_trash_by_id(row_id: str):
+def remove_from_trash_by_id(row_id: str) -> bool:
     trash = load_trash()
     trash = trash[trash["ID"] != row_id].copy()
-    write_csv_to_destination(trash, TRASH_FILE, commit_message="chore(trash): remove row")
+    return write_csv_to_destination(trash, TRASH_FILE, commit_message="chore(trash): remove row")
 
 # -------------------------
 # Validación de datos de entrada
@@ -467,8 +476,11 @@ if not destination_exists(CSV_FILE):
         if "FECHA" in df_init.columns:
             df_init["FECHA"] = ensure_datetime_es(df_init["FECHA"]).dt.strftime(DATE_OUT_FMT)
         df_init = ensure_ids(df_init)
-        write_csv_to_destination(df_init, CSV_FILE, commit_message="chore(data): initial upload")
-        st.sidebar.success("✅ Archivo inicial cargado correctamente.")
+        ok_init = write_csv_to_destination(df_init, CSV_FILE, commit_message="chore(data): initial upload")
+        if ok_init:
+            st.sidebar.success("✅ Archivo inicial cargado correctamente.")
+        else:
+            st.sidebar.error("❌ No se pudo escribir en GitHub. Revisá permisos del token/secrets.")
 else:
     st.sidebar.success("Usando archivo existente")
 
@@ -624,17 +636,20 @@ with tab_datos:
                         st.error(f"⚠️ {error_msg}")
                     else:
                         # Datos válidos, guardar
-                        save_data({
+                        ok = save_data({
                             "FECHA": cleaned_data["FECHA"], 
                             "NIVEL": cleaned_data["NIVEL"] - 0.17, 
                             "LLUVIA": cleaned_data["LLUVIA"], 
                             "EXTRACCION": cleaned_data["EXTRACCION"]
                         })
-                        st.toast("✅ Datos guardados correctamente", icon="✅")
-                        st.balloons()
-                        # Marcar para resetear en próximo rerun
-                        st.session_state.reset_after_save = True
-                        st.rerun()
+                        if ok:
+                            st.toast("✅ Datos guardados correctamente", icon="✅")
+                            st.balloons()
+                            # Marcar para resetear en próximo rerun
+                            st.session_state.reset_after_save = True
+                            st.rerun()
+                        else:
+                            st.error("❌ No se pudo guardar en GitHub. Verificá el token, branch y permisos.")
         else:
             st.info("📅 Selecciona una fecha para comenzar")
 
@@ -753,9 +768,12 @@ with tab_datos:
                         df_all.loc[df_all["ID"] == sel_id, "NIVEL"] = nivel_final
                         df_all.loc[df_all["ID"] == sel_id, "LLUVIA"] = cleaned_data["LLUVIA"]
                         df_all.loc[df_all["ID"] == sel_id, "EXTRACCION"] = cleaned_data["EXTRACCION"]
-                        overwrite_data(df_all)
-                        st.toast("✅ Registro modificado correctamente", icon="✅")
-                        st.rerun()
+                        ok_mod = overwrite_data(df_all)
+                        if ok_mod:
+                            st.toast("✅ Registro modificado correctamente", icon="✅")
+                            st.rerun()
+                        else:
+                            st.error("❌ No se pudo guardar en GitHub. Verificá el token, branch y permisos.")
 
     # ---- Eliminar ----
     with subtab_eliminar:
@@ -792,12 +810,15 @@ with tab_datos:
                         # Guardar para deshacer
                         st.session_state["last_deleted_rows"] = rows_to_delete.copy()
                         # Mover a papelera
-                        append_to_trash(rows_to_delete)
+                        ok_trash = append_to_trash(rows_to_delete)
                         # Eliminar de principal
                         df_new = df_current[df_current["ID"] != sel_id].reset_index(drop=True)
-                        overwrite_data(df_new)
-                        st.toast("Registro movido a Papelera", icon="🗑️")
-                        st.rerun()
+                        ok_data = overwrite_data(df_new)
+                        if ok_trash and ok_data:
+                            st.toast("Registro movido a Papelera", icon="🗑️")
+                            st.rerun()
+                        else:
+                            st.error("❌ No se pudo escribir cambios en GitHub.")
 
             if deshacer:
                 last = st.session_state.get("last_deleted_rows")
@@ -817,7 +838,9 @@ with tab_datos:
                         rows_add["FECHA"] = to_es_date_str(ensure_datetime_es(rows_add["FECHA"]))
                         rows_add = ensure_ids(rows_add)
                         df_now = pd.concat([df_now, rows_add], ignore_index=True)
-                        df_now.to_csv(CSV_FILE, index=False)
+                        ok_write = write_csv_to_destination(df_now, CSV_FILE, commit_message="chore(data): undo delete")
+                        if not ok_write:
+                            st.error("❌ No se pudo restaurar en GitHub.")
                         # Quitar esos IDs de la papelera si existen
                         for rid in rows_add["ID"].tolist():
                             remove_from_trash_by_id(rid)
@@ -859,9 +882,12 @@ with tab_datos:
 
             if purge_btn:
                 # Vaciar papelera completa
-                pd.DataFrame(columns=["FECHA","NIVEL","LLUVIA","EXTRACCION","ID"]).to_csv(TRASH_FILE, index=False)
-                st.toast("Papelera vaciada", icon="🧹")
-                st.rerun()
+                ok_purge = write_csv_to_destination(pd.DataFrame(columns=["FECHA","NIVEL","LLUVIA","EXTRACCION","ID"]), TRASH_FILE, commit_message="chore(trash): purge")
+                if ok_purge:
+                    st.toast("Papelera vaciada", icon="🧹")
+                    st.rerun()
+                else:
+                    st.error("❌ No se pudo vaciar la Papelera en GitHub.")
 
 # ====== TAB ANÁLISIS ======
 with tab_analisis:
