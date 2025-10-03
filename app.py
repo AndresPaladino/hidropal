@@ -67,13 +67,15 @@ def _gh_contents_url(repo: str, path: str) -> str:
     owner, name = repo.split("/")
     return f"https://api.github.com/repos/{owner}/{name}/contents/{path}"
 
-def gh_get_file(path: str):
-    """Obtiene contenido (str) y sha del archivo en GitHub. Retorna (None, None) si no existe."""
+def gh_get_file(path: str, ref: str | None = None):
+    """Obtiene contenido (str) y sha del archivo en GitHub. Retorna (None, None) si no existe.
+    Si se provee ref (branch o commit sha), se usa para forzar esa revisión.
+    """
     cfg = _gh_cfg()
     if not cfg:
         return None, None
     url = _gh_contents_url(cfg["repo"], path)
-    params = {"ref": cfg["branch"]}
+    params = {"ref": ref or cfg["branch"]}
     r = requests.get(url, headers=_gh_headers(cfg["token"]), params=params, timeout=20)
     if r.status_code == 404:
         return None, None
@@ -86,10 +88,10 @@ def gh_get_file(path: str):
     return None, data.get("sha")
 
 def gh_put_file(path: str, content_str: str, message: str, sha: str | None = None):
-    """Crea/actualiza archivo en GitHub (Contents API)."""
+    """Crea/actualiza archivo en GitHub (Contents API). Retorna commit sha en éxito, None en error."""
     cfg = _gh_cfg()
     if not cfg:
-        return False
+        return None
     url = _gh_contents_url(cfg["repo"], path)
     payload = {
         "message": message,
@@ -100,9 +102,11 @@ def gh_put_file(path: str, content_str: str, message: str, sha: str | None = Non
         payload["sha"] = sha
     r = requests.put(url, headers=_gh_headers(cfg["token"]), json=payload, timeout=20)
     if r.status_code in (200, 201):
-        return True
+        data = r.json()
+        commit_sha = (data or {}).get("commit", {}).get("sha")
+        return commit_sha
     # En caso de conflicto por SHA, devolver False para que el caller reintente
-    return False
+    return None
 
 def destination_exists(path: str) -> bool:
     if gh_enabled():
@@ -112,7 +116,10 @@ def destination_exists(path: str) -> bool:
 
 def read_csv_from_destination(path: str) -> pd.DataFrame:
     if gh_enabled():
-        content, _ = gh_get_file(path)
+        # Intentar leer la última revisión conocida para evitar latencia de propagación
+        ref_map = st.session_state.get("_gh_last_ref_map", {})
+        ref = ref_map.get(path)
+        content, _ = gh_get_file(path, ref=ref)
         if content is None:
             raise FileNotFoundError(path)
         return pd.read_csv(io.StringIO(content))
@@ -124,8 +131,14 @@ def write_csv_to_destination(df: pd.DataFrame, path: str, commit_message: str) -
         _, sha = gh_get_file(path)
         csv_buf = io.StringIO()
         df.to_csv(csv_buf, index=False)
-        ok = gh_put_file(path, csv_buf.getvalue(), commit_message, sha)
-        return ok
+        commit_sha = gh_put_file(path, csv_buf.getvalue(), commit_message, sha)
+        if commit_sha:
+            # Guardar ref por-path para forzar lectura inmediata de esta revisión
+            ref_map = st.session_state.get("_gh_last_ref_map", {})
+            ref_map[path] = commit_sha
+            st.session_state["_gh_last_ref_map"] = ref_map
+            return True
+        return False
     else:
         df.to_csv(path, index=False)
         return True
