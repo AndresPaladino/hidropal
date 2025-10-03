@@ -473,6 +473,43 @@ else:
     st.sidebar.success("Usando archivo existente")
 
 # -------------------------
+# Diagnóstico de configuración (GitHub)
+# -------------------------
+with st.sidebar.expander("Diagnóstico GitHub"):
+    enabled = gh_enabled()
+    st.write("Backend GitHub:", "habilitado" if enabled else "deshabilitado")
+    cfg = _gh_cfg()
+    if cfg:
+        st.write("Repo:", cfg.get("repo"))
+        st.write("Branch:", cfg.get("branch"))
+        st.write("Archivo datos:", cfg.get("data_path"))
+        st.write("Archivo papelera:", cfg.get("trash_path"))
+        st.write("Token presente:", "sí" if bool(cfg.get("token")) else "no")
+        # Mostrar claves presentes (sin revelar valores) para confirmar nombres correctos
+        try:
+            sec = st.secrets.get("github", st.secrets)
+            keys = sorted(list(sec.keys()))
+            # No mostramos el valor del token, solo indicamos que existe
+            st.caption("Claves detectadas en secrets: " + ", ".join(keys))
+        except Exception:
+            pass
+        if st.button("Probar lectura de datos", key="gh_probe"):
+            try:
+                content, sha = gh_get_file(cfg["data_path"])  # usa branch por defecto
+                if content is None:
+                    st.error("No se encontró el archivo en el repo o falta permiso (404)")
+                else:
+                    st.success(f"OK: archivo encontrado (sha={sha}), tamaño ~{len(content)} bytes")
+            except requests.exceptions.HTTPError as e:
+                code = e.response.status_code if getattr(e, 'response', None) is not None else "?"
+                text = e.response.text[:300] if getattr(e, 'response', None) is not None else str(e)
+                st.error(f"HTTP {code}: {text}")
+            except Exception as e:
+                st.error(f"{type(e).__name__}: {e}")
+    else:
+        st.info("No se detectó configuración de GitHub en secrets.")
+
+# -------------------------
 # NAVBAR con tabs
 # -------------------------
 tab_datos, tab_analisis = st.tabs(["🧾 Datos", "📈 Análisis"])
