@@ -1039,7 +1039,7 @@ with tab_analisis:
         # --- multi select superpuestas
         st.subheader("Comparación de tendencias")
         variables = {
-            "Nivel": df["NIVEL"],
+            "Nivel": -df["NIVEL"],
             "Lluvia": df["LLUVIA"],
             "Extracción": df["EXTRACCION"],
             "Variación de nivel": df["VARIACION_NIVEL"],
