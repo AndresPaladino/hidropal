@@ -979,7 +979,8 @@ with tab_analisis:
         st.subheader("Serie temporal")
         fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
         fig.patch.set_alpha(0.0)
-        axes[0].plot(df['FECHA'], 6.5 - df['NIVEL'], marker='o', color=COLOR_PALETTE["NIVEL"])
+        axes[0].plot(df['FECHA'], df['NIVEL'], marker='o', color=COLOR_PALETTE["NIVEL"])
+        axes[0].invert_yaxis()
         axes[0].set_title('Nivel de Agua')
         axes[0].set_ylabel('Nivel (m)')
         axes[0].grid(True)
@@ -1038,7 +1039,7 @@ with tab_analisis:
         # --- multi select superpuestas
         st.subheader("Comparación de tendencias")
         variables = {
-            "Nivel": 6.5 - df["NIVEL"],
+            "Nivel": df["NIVEL"],
             "Lluvia": df["LLUVIA"],
             "Extracción": df["EXTRACCION"],
             "Variación de nivel": df["VARIACION_NIVEL"],
