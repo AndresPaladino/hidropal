@@ -35,6 +35,7 @@ if not supabase_enabled():
     )
     st.stop()
 
+auth.inject_session_restore()
 editor = auth.is_editor()
 
 

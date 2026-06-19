@@ -1,8 +1,13 @@
-"""Autenticacion de edicion: PIN + token firmado en query params.
+"""Autenticacion de edicion: PIN + token firmado en query params + localStorage.
 
 Modelo: la vista publica es de solo-lectura. Para editar hay que ingresar un
-PIN una sola vez; se guarda un token HMAC en st.query_params (persiste en la
-URL del browser entre recargas sin depender de cookies ni iframes JS).
+PIN una sola vez. El token HMAC se guarda en:
+  - st.query_params: persiste en la URL entre recargas en el browser normal.
+  - localStorage: persiste entre sesiones en modo PWA (iPhone home screen),
+    donde la app siempre abre la URL original sin query params.
+
+inject_session_restore() debe llamarse al inicio de cada render para sincronizar
+ambos stores y redirigir si el token esta en localStorage pero no en la URL.
 """
 from __future__ import annotations
 
@@ -11,10 +16,12 @@ import hashlib
 import hmac
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from .config import auth_cfg
 
 _PARAM = "t"
+_LS_KEY = "hidropal_auth"
 
 
 # -------------------------
@@ -51,6 +58,43 @@ def _token_valid(token: str, secret: str) -> bool:
 
 
 # -------------------------
+# Sincronizacion localStorage <-> URL (para modo PWA)
+# -------------------------
+def inject_session_restore():
+    """Sincroniza el token entre la URL y localStorage en cada render.
+
+    - URL tiene token → lo copia a localStorage (backup para modo PWA).
+    - URL sin token pero localStorage si → redirige con el token en la URL.
+
+    En modo PWA (iPhone home screen) la app siempre abre la URL guardada al
+    momento de "Agregar al inicio", sin query params. Este script recupera la
+    sesion desde localStorage y la inyecta en la URL para que is_editor() la
+    encuentre en el siguiente render.
+    """
+    components.html(
+        f"""
+        <script>
+        (function() {{
+          try {{
+            var url = new URL(window.parent.location.href);
+            var urlToken = url.searchParams.get('{_PARAM}');
+            var lsToken = localStorage.getItem('{_LS_KEY}');
+            if (urlToken) {{
+              localStorage.setItem('{_LS_KEY}', urlToken);
+            }} else if (lsToken) {{
+              url.searchParams.set('{_PARAM}', lsToken);
+              window.parent.location.replace(url.toString());
+            }}
+          }} catch(e) {{}}
+        }})();
+        </script>
+        """,
+        height=0,
+        scrolling=False,
+    )
+
+
+# -------------------------
 # API publica
 # -------------------------
 def is_editor() -> bool:
@@ -68,7 +112,7 @@ def is_editor() -> bool:
 
 
 def try_login(pin: str) -> bool:
-    """Verifica el PIN; si es correcto escribe el token en la URL."""
+    """Verifica el PIN; si es correcto escribe el token en la URL y localStorage."""
     cfg = auth_cfg()
     if not cfg:
         return False
@@ -76,6 +120,7 @@ def try_login(pin: str) -> bool:
         return False
     token = _make_token(cfg["cookie_secret"], cfg["cookie_days"])
     st.query_params[_PARAM] = token
+    # localStorage se sincroniza via inject_session_restore() en el proximo render
     st.session_state["_is_editor"] = True
     return True
 
@@ -83,3 +128,8 @@ def try_login(pin: str) -> bool:
 def logout() -> None:
     st.session_state["_is_editor"] = False
     st.query_params.pop(_PARAM, None)
+    components.html(
+        f"<script>try{{localStorage.removeItem('{_LS_KEY}')}}catch(e){{}}</script>",
+        height=0,
+        scrolling=False,
+    )
