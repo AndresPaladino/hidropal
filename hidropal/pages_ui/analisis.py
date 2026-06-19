@@ -40,10 +40,10 @@ def render():
     # --- Selector de rango ---
     _RANGOS = {"30 dias": 30, "90 dias": 90, "Todo": None}
     rango = st.segmented_control(
-        "Rango", list(_RANGOS.keys()), default="90 dias",
+        "Rango", list(_RANGOS.keys()), default="Todo",
         label_visibility="collapsed", key="rango_analisis",
     )
-    dias = _RANGOS.get(rango or "90 dias", 90)
+    dias = _RANGOS.get(rango or "Todo", None)
     dfv = charts.filtrar_rango(df, dias)
 
     # --- Graficas ---
