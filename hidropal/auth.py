@@ -1,13 +1,11 @@
-"""Autenticacion de edicion: PIN + token firmado en query params + localStorage.
+"""Autenticacion de edicion: PIN + cookie via streamlit-cookies-controller.
 
 Modelo: la vista publica es de solo-lectura. Para editar hay que ingresar un
-PIN una sola vez. El token HMAC se guarda en:
-  - st.query_params: persiste en la URL entre recargas en el browser normal.
-  - localStorage: persiste entre sesiones en modo PWA (iPhone home screen),
-    donde la app siempre abre la URL original sin query params.
-
-inject_session_restore() debe llamarse al inicio de cada render para sincronizar
-ambos stores y redirigir si el token esta en localStorage pero no en la URL.
+PIN una sola vez. El token HMAC firmado se guarda en una cookie del browser
+via streamlit-cookies-controller (usa document.cookie desde un iframe con
+allow-same-origin). Las cookies del browser se comparten entre Safari y el
+modo PWA (iPhone home screen), por lo que la sesion persiste al cerrar y
+reabrir la app desde la pantalla de inicio.
 """
 from __future__ import annotations
 
@@ -16,12 +14,10 @@ import hashlib
 import hmac
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from .config import auth_cfg
 
-_PARAM = "t"
-_LS_KEY = "hidropal_auth"
+_COOKIE_NAME = "hidropal_auth"
 
 
 # -------------------------
@@ -58,53 +54,29 @@ def _token_valid(token: str, secret: str) -> bool:
 
 
 # -------------------------
-# Sincronizacion localStorage <-> URL (para modo PWA)
+# Cookie manager (singleton por sesion)
 # -------------------------
-def inject_session_restore():
-    """Sincroniza el token entre la URL y localStorage en cada render.
-
-    - URL tiene token → lo copia a localStorage (backup para modo PWA).
-    - URL sin token pero localStorage si → redirige con el token en la URL.
-
-    En modo PWA (iPhone home screen) la app siempre abre la URL guardada al
-    momento de "Agregar al inicio", sin query params. Este script recupera la
-    sesion desde localStorage y la inyecta en la URL para que is_editor() la
-    encuentre en el siguiente render.
-    """
-    components.html(
-        f"""
-        <script>
-        (function() {{
-          try {{
-            var url = new URL(window.parent.location.href);
-            var urlToken = url.searchParams.get('{_PARAM}');
-            var lsToken = localStorage.getItem('{_LS_KEY}');
-            if (urlToken) {{
-              localStorage.setItem('{_LS_KEY}', urlToken);
-            }} else if (lsToken) {{
-              url.searchParams.set('{_PARAM}', lsToken);
-              window.parent.location.replace(url.toString());
-            }}
-          }} catch(e) {{}}
-        }})();
-        </script>
-        """,
-        height=0,
-        scrolling=False,
-    )
+def _get_controller():
+    if "_cookie_ctrl" not in st.session_state:
+        from streamlit_cookies_controller import CookieController
+        st.session_state["_cookie_ctrl"] = CookieController(key="hidropal_cc")
+    return st.session_state["_cookie_ctrl"]
 
 
 # -------------------------
 # API publica
 # -------------------------
 def is_editor() -> bool:
-    """True si la sesion esta autenticada o el query param contiene un token valido."""
+    """True si la sesion esta autenticada o la cookie contiene un token valido."""
     if st.session_state.get("_is_editor"):
         return True
     cfg = auth_cfg()
     if not cfg:
         return False
-    token = st.query_params.get(_PARAM, "")
+    try:
+        token = _get_controller().get(_COOKIE_NAME) or ""
+    except Exception:
+        return False
     if token and _token_valid(token, cfg["cookie_secret"]):
         st.session_state["_is_editor"] = True
         return True
@@ -112,24 +84,25 @@ def is_editor() -> bool:
 
 
 def try_login(pin: str) -> bool:
-    """Verifica el PIN; si es correcto escribe el token en la URL y localStorage."""
+    """Verifica el PIN; si es correcto escribe la cookie de sesion."""
     cfg = auth_cfg()
     if not cfg:
         return False
     if not hmac.compare_digest(hash_pin(pin.strip()), cfg["pin_hash"]):
         return False
     token = _make_token(cfg["cookie_secret"], cfg["cookie_days"])
-    st.query_params[_PARAM] = token
-    # localStorage se sincroniza via inject_session_restore() en el proximo render
+    expires = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=cfg["cookie_days"])
+    try:
+        _get_controller().set(_COOKIE_NAME, token, expires=expires)
+    except Exception:
+        pass
     st.session_state["_is_editor"] = True
     return True
 
 
 def logout() -> None:
     st.session_state["_is_editor"] = False
-    st.query_params.pop(_PARAM, None)
-    components.html(
-        f"<script>try{{localStorage.removeItem('{_LS_KEY}')}}catch(e){{}}</script>",
-        height=0,
-        scrolling=False,
-    )
+    try:
+        _get_controller().remove(_COOKIE_NAME)
+    except Exception:
+        pass
