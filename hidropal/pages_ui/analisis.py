@@ -37,7 +37,7 @@ def render():
 
     st.divider()
 
-    # --- Selector de rango (mobile: evita comprimir años en 360px) ---
+    # --- Selector de rango ---
     _RANGOS = {"30 dias": 30, "90 dias": 90, "Todo": None}
     rango = st.segmented_control(
         "Rango", list(_RANGOS.keys()), default="90 dias",
@@ -47,54 +47,31 @@ def render():
     dfv = charts.filtrar_rango(df, dias)
 
     # --- Graficas principales ---
-    st.subheader("Nivel del pozo")
-    st.caption("Mas arriba = mas agua (el eje esta invertido).")
-    st.plotly_chart(charts.fig_nivel(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
-
-    st.subheader("Nivel y lluvia")
-    st.caption("¿La lluvia recupera el pozo? Cada uno con su escala real.")
-    st.plotly_chart(charts.fig_nivel_lluvia(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
-
-    st.subheader("Extraccion")
-    st.plotly_chart(charts.fig_extraccion(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
+    st.subheader("Serie temporal")
+    st.pyplot(charts.fig_serie_temporal(dfv))
 
     # --- Graficas avanzadas (plegadas) ---
     with st.expander("Mas analisis"):
-        st.markdown("**Dashboard completo**")
-        st.plotly_chart(charts.fig_dashboard(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
+        st.subheader("Dashboard")
+        st.pyplot(charts.fig_dashboard(dfv))
 
-        st.markdown("**Comparacion de tendencias**")
-        # st.pills: seleccion multiple por toque, sin teclado (mobile-friendly).
-        seleccion = st.pills(
-            "Variables a comparar", charts.opciones_comparar(), selection_mode="multi",
-            default=["Nivel", "Lluvia"],
+        st.subheader("Comparación de tendencias")
+        seleccion = st.multiselect(
+            "Variables a comparar", charts.opciones_comparar(),
+            placeholder="Selecciona una o más variables",
+            default=["Nivel", "Lluvia", "Extracción"],
         )
-        # El grafico se adapta: 1 o 2 variables -> escala real; 3+ -> relativo.
         if seleccion:
-            n = len(seleccion)
-            if n <= 2:
-                st.caption(f"Mostrando {n} variable(s) con su escala real.")
-            else:
-                st.caption(f"{n} variables en escala relativa (0-100%): compara la forma, no la cantidad. Toca un punto para ver el valor real.")
-            st.plotly_chart(
-                charts.fig_comparacion(dfv, seleccion),
-                use_container_width=True, config=charts.PLOTLY_CONFIG,
-            )
+            st.pyplot(charts.fig_comparacion(dfv, seleccion))
 
-        st.markdown("**Variacion del nivel vs Lluvia acumulada (7d)**")
-        st.plotly_chart(
-            charts.fig_scatter_var(dfv, "LLUVIA_ACUM_7D", "Lluvia acumulada (mm)"),
-            use_container_width=True, config=charts.PLOTLY_CONFIG,
-        )
+        st.subheader("Variación del nivel vs Lluvia acumulada (7d)")
+        st.pyplot(charts.fig_scatter_var_lluvia(dfv))
 
-        st.markdown("**Variacion del nivel vs Volumen extraido**")
-        st.plotly_chart(
-            charts.fig_scatter_var(dfv, "EXTRACCION", "Extraccion (lts)"),
-            use_container_width=True, config=charts.PLOTLY_CONFIG,
-        )
+        st.subheader("Variación del nivel vs Volumen extraído")
+        st.pyplot(charts.fig_scatter_var_extraccion(dfv))
 
-        st.markdown("**Variacion del nivel segun extraccion y lluvia**")
-        st.plotly_chart(charts.fig_scatter_2d(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
+        st.subheader("Variación del nivel en función de extracción y lluvia")
+        st.pyplot(charts.fig_scatter_2d(dfv))
 
     # --- Tabla completa ---
     with st.expander("Ver tabla de datos"):
