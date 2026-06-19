@@ -64,9 +64,9 @@ def _acciones_editor():
 # Navegacion
 # -------------------------
 if editor:
-    tab_analisis, tab_datos = st.tabs(["Analisis", "Datos"])
-    with tab_analisis:
-        analisis.render()
+    # Para el editor, "Datos" va primero: la accion diaria es cargar un dato,
+    # asi que esa es la pestania por defecto al entrar.
+    tab_datos, tab_analisis = st.tabs(["Datos", "Analisis"])
     with tab_datos:
         sub = st.tabs(["Cargar", "Modificar", "Eliminar", "Papelera"])
         with sub[0]:
@@ -79,6 +79,8 @@ if editor:
             restaurar.render()
         st.divider()
         _acciones_editor()
+    with tab_analisis:
+        analisis.render()
 else:
     analisis.render()
     st.divider()
