@@ -46,10 +46,10 @@ def render():
 
     st.subheader("Comparacion de tendencias")
     opciones = list(charts.variables_para_comparar(df).keys())
-    seleccion = st.multiselect(
-        "Variables a comparar", opciones,
+    # st.pills: seleccion multiple por toque, sin teclado (mobile-friendly).
+    seleccion = st.pills(
+        "Variables a comparar", opciones, selection_mode="multi",
         default=["Nivel", "Lluvia", "Extraccion"],
-        placeholder="Selecciona una o mas variables",
     )
     if seleccion:
         st.plotly_chart(charts.fig_comparacion(df, seleccion), use_container_width=True)
