@@ -28,9 +28,12 @@ _CSS = """
   }
   html, body { font-size: 17px; }
 
-  /* Contenedor angosto, header compacto */
+  /* Ocultar barra de Streamlit */
+  header[data-testid="stHeader"], #stDecoration { display: none !important; }
+
+  /* Contenedor angosto */
   .block-container {
-    padding-top: 0.6rem;
+    padding-top: 1.2rem;
     padding-bottom: 4rem;
     max-width: 640px;
   }

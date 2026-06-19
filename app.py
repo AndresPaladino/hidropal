@@ -74,9 +74,7 @@ if editor:
     st.divider()
     _acciones_editor()
 else:
-    analisis.render()
-    st.divider()
-    with st.expander("Ingresar para editar"):
+    with st.expander("🔒 Ingresar para editar"):
         pin = st.text_input("PIN", type="password", key="login_pin")
         if st.button("Ingresar", type="primary"):
             if auth.try_login(pin):
@@ -84,3 +82,4 @@ else:
                 st.rerun()
             else:
                 st.error("PIN incorrecto.")
+    analisis.render()
