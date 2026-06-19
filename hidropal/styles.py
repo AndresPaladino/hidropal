@@ -1,113 +1,168 @@
-"""CSS mobile-first inyectado. Pensado para un usuario de 65 anios en Safari/iPhone:
-targets tactiles grandes, una sola columna, tipografia legible, sin sidebar.
+"""Lenguaje visual Apple-refined (iOS) para HidroPal.
+
+Paleta neutral: fondo gris iOS, tarjetas blancas con esquinas grandes y sombra
+sutil, texto casi negro, secundario gris, y el azul de marca solo como acento.
+Pensado mobile-first para Safari/iPhone (usuario de 65).
 """
 import streamlit as st
+import streamlit.components.v1 as components
 
 _CSS = """
 <style>
   :root {
-    --hp-blue: #0a3fff;
-    --hp-ink: #011887;
-    --hp-border: #c9d6ff;
+    --hp-bg: #F2F2F7;          /* gris iOS de fondo */
+    --hp-card: #FFFFFF;
+    --hp-ink: #1C1C1E;         /* texto casi negro */
+    --hp-sub: #8E8E93;         /* gris secundario */
+    --hp-line: #E5E5EA;        /* hairline */
+    --hp-accent: #0A3FFF;      /* azul de marca (acento) */
+    --hp-accent-soft: #EAEFFF;
+    --hp-red: #FF3B30;         /* rojo sistema */
+    --hp-radius: 18px;
   }
 
-  /* Contenedor mas angosto y con aire en mobile */
+  /* Tipografia del sistema (SF en iOS) */
+  html, body, [class*="css"], .stMarkdown, button, input {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+      Roboto, Helvetica, Arial, sans-serif;
+  }
+  html, body { font-size: 17px; }
+
+  /* Contenedor angosto, header compacto */
   .block-container {
-    padding-top: 1rem;
+    padding-top: 0.6rem;
     padding-bottom: 4rem;
-    max-width: 680px;
+    max-width: 640px;
   }
 
-  /* Tipografia mas grande para lectura comoda */
-  html, body, [class*="css"] { font-size: 17px; }
+  /* Titulos mas suaves */
+  h1, h2, h3 { color: var(--hp-ink); letter-spacing: -0.02em; }
+  .stMarkdown h2, .stMarkdown h3 { font-weight: 700; }
 
-  /* Botones grandes y faciles de tocar */
-  .stButton > button,
-  .stDownloadButton > button,
-  .stForm button {
-    width: 100%;
-    min-height: 3.3rem;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 14px;
+  /* ---- Header slim ---- */
+  .hidropal-hero {
+    display: flex; align-items: center; justify-content: center;
+    gap: 9px; margin: 2px auto 10px;
   }
-  /* Boton primario con un poco de presencia */
-  .stButton > button[kind="primary"] {
-    box-shadow: 0 6px 16px rgba(10, 63, 255, 0.25);
+  .hidropal-logo { width: 26px; height: 26px; line-height: 0; }
+  .hidropal-logo svg { width: 100%; height: 100%; display: block; }
+  .hidropal-title {
+    font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--hp-ink);
+    letter-spacing: -0.02em;
   }
 
-  /* Inputs con mas contraste (se veian palidos) */
-  .stNumberInput input,
-  .stDateInput input,
-  .stTextInput input {
-    min-height: 3.1rem;
-    font-size: 1.1rem;
-    background: #ffffff !important;
-    border: 1.5px solid var(--hp-border) !important;
+  /* ---- Tarjetas (st.container border=True) estilo iOS grouped ---- */
+  [data-testid="stVerticalBlockBorderWrapper"] {
+    background: var(--hp-card);
+    border: 1px solid var(--hp-line) !important;
+    border-radius: var(--hp-radius) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    padding: 4px 4px;
+  }
+
+  /* ---- Inputs ---- */
+  .stNumberInput input, .stDateInput input, .stTextInput input {
+    min-height: 3rem;
+    font-size: 1.08rem;
+    background: #fff !important;
+    border: 1px solid var(--hp-line) !important;
     border-radius: 12px !important;
     color: var(--hp-ink) !important;
   }
-  .stNumberInput label, .stDateInput label, .stTextInput label {
-    font-weight: 600; font-size: 1.02rem;
+  .stNumberInput input:focus, .stDateInput input:focus, .stTextInput input:focus {
+    border-color: var(--hp-accent) !important;
+    box-shadow: 0 0 0 3px rgba(10,63,255,0.15) !important;
   }
-  /* Botones +/- del number_input mas grandes */
-  .stNumberInput button { min-height: 3.1rem; min-width: 3rem; }
+  .stNumberInput label, .stDateInput label, .stTextInput label,
+  .stRadio label, .stPills label {
+    font-weight: 600; font-size: 0.98rem; color: var(--hp-ink);
+  }
+  .stNumberInput button { min-height: 3rem; min-width: 2.8rem; }
 
-  /* Tabs como pildoras grandes, scrolleables en horizontal */
-  .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-  .stTabs [data-baseweb="tab"] {
-    min-height: 3rem;
-    padding: 0 16px;
-    font-size: 1.02rem;
+  /* ---- Botones ---- */
+  .stButton > button, .stDownloadButton > button, .stForm button {
+    width: 100%;
+    min-height: 3.2rem;
+    font-size: 1.08rem;
     font-weight: 600;
+    border-radius: 14px;
+    border: 1px solid var(--hp-line);
+    background: #fff;
+    color: var(--hp-accent);
+    transition: transform .04s ease;
+  }
+  .stButton > button:active { transform: scale(0.98); }
+  /* Primario: azul lleno */
+  .stButton > button[kind="primary"], .stForm button[kind="primaryFormSubmit"] {
+    background: var(--hp-accent);
+    border-color: var(--hp-accent);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(10,63,255,0.22);
+  }
+  /* Destructivo (botones con key=btn_eliminar / btn_purge) */
+  .st-key-btn_eliminar button, .st-key-btn_purge button {
+    background: #fff; color: var(--hp-red); border-color: rgba(255,59,48,0.35);
+  }
+  .st-key-btn_eliminar button:active, .st-key-btn_purge button:active {
+    background: rgba(255,59,48,0.06);
+  }
+
+  /* ---- Segmented control (navegacion) estilo iOS ---- */
+  [data-testid="stSegmentedControl"] [role="group"] {
+    background: #E3E3E8;
     border-radius: 12px;
+    padding: 3px;
+    gap: 2px;
+    width: 100%;
   }
-  .stTabs [aria-selected="true"] {
-    background: #e8eeff;
+  [data-testid="stSegmentedControl"] button {
+    border: none !important;
+    background: transparent !important;
+    border-radius: 9px !important;
+    min-height: 2.6rem;
+    color: var(--hp-ink) !important;
+    font-weight: 600 !important;
+    flex: 1;
+  }
+  [data-testid="stSegmentedControl"] button[aria-checked="true"] {
+    background: #fff !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
   }
 
-  /* Tarjetas (st.container con border=True) */
-  [data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 18px !important;
-    border-color: var(--hp-border) !important;
-    box-shadow: 0 8px 24px rgba(1, 24, 135, 0.06);
+  /* ---- Pills (comparacion) ---- */
+  [data-testid="stPills"] button[aria-checked="true"] {
+    background: var(--hp-accent-soft) !important;
+    border-color: var(--hp-accent) !important;
+    color: var(--hp-accent) !important;
   }
 
-  /* Tarjetas KPI / resumen (HTML propio) */
-  .kpi-row { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 8px; }
+  /* ---- Tarjetas KPI / resumen (HTML propio) ---- */
+  .kpi-row { display: flex; flex-direction: column; gap: 9px; margin: 4px 0 8px; }
   .kpi {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px;
-    background: #ffffff;
-    border: 1.5px solid var(--hp-border);
-    border-radius: 16px;
-    padding: 14px 18px;
-    box-shadow: 0 4px 14px rgba(1, 24, 135, 0.05);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--hp-card);
+    border: 1px solid var(--hp-line);
+    border-radius: var(--hp-radius);
+    padding: 13px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
   .kpi-l { display: flex; align-items: center; gap: 11px; }
   .kpi-ico {
-    font-size: 1.25rem; line-height: 1;
-    width: 40px; height: 40px; border-radius: 11px;
+    font-size: 1.15rem; line-height: 1;
+    width: 38px; height: 38px; border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    background: #eef3ff;
+    background: var(--hp-accent-soft);
   }
-  .kpi-label { font-weight: 600; font-size: 1rem; color: #44506b; }
+  .kpi-label { font-weight: 500; font-size: 0.98rem; color: var(--hp-sub); }
   .kpi-r { text-align: right; }
-  .kpi-val { font-size: 1.55rem; font-weight: 800; color: var(--hp-ink); line-height: 1.05; }
-  .kpi-unit { font-size: 0.95rem; font-weight: 700; color: #8893ab; margin-left: 2px; }
-  .kpi-delta { font-size: 0.82rem; color: #64748b; margin-top: 3px; }
+  .kpi-val { font-size: 1.5rem; font-weight: 700; color: var(--hp-ink); line-height: 1.05; }
+  .kpi-unit { font-size: 0.9rem; font-weight: 600; color: var(--hp-sub); margin-left: 3px; }
+  .kpi-delta { font-size: 0.8rem; color: var(--hp-sub); margin-top: 3px; }
 
-  /* Header hero */
-  .hidropal-hero {
-    display: flex; align-items: center; justify-content: center;
-    gap: 12px; margin: 6px auto 14px;
-  }
-  .hidropal-logo { width: 56px; height: 56px; }
-  .hidropal-logo svg { width: 100%; height: 100%; display: block; }
-  .hidropal-title {
-    font-size: 2rem; font-weight: 800; margin: 0; line-height: 1.1;
-    color: var(--hp-ink);
-  }
+  /* Dataframe: bordes suaves */
+  [data-testid="stDataFrame"] { border-radius: 14px; }
+
+  hr { border-color: var(--hp-line); }
 </style>
 """
 
@@ -116,12 +171,45 @@ def inject():
     st.markdown(_CSS, unsafe_allow_html=True)
 
 
+def suppress_date_keyboard():
+    """Evita el teclado virtual en los date_input (iOS): setea inputmode=none
+    en los inputs de fecha del documento padre (same-origin) y reaplica tras
+    reruns con un MutationObserver. El calendario sigue funcionando.
+    """
+    components.html(
+        """
+        <script>
+        const doc = window.parent.document;
+        function fix() {
+          doc.querySelectorAll('[data-testid="stDateInput"] input').forEach(el => {
+            el.setAttribute('inputmode', 'none');
+            el.setAttribute('autocomplete', 'off');
+          });
+        }
+        fix();
+        new MutationObserver(fix).observe(doc.body, {childList: true, subtree: true});
+        </script>
+        """,
+        height=0,
+    )
+
+
+def hero(svg_icon: str):
+    st.markdown(
+        f"""
+        <div class="hidropal-hero">
+          <div class="hidropal-logo">{svg_icon}</div>
+          <span class="hidropal-title">HidroPal</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def metric_cards(items: list[dict]):
     """Renderiza tarjetas KPI/resumen consistentes.
 
-    items: lista de dicts con claves:
-      icon (emoji), label (str), value (str), unit (str, opcional),
-      delta (str, opcional).
+    items: lista de dicts con claves icon, label, value, unit (opc), delta (opc).
     """
     html = ['<div class="kpi-row">']
     for it in items:
@@ -136,15 +224,3 @@ def metric_cards(items: list[dict]):
         )
     html.append("</div>")
     st.markdown("".join(html), unsafe_allow_html=True)
-
-
-def hero(svg_icon: str):
-    st.markdown(
-        f"""
-        <div class="hidropal-hero">
-          <div class="hidropal-logo">{svg_icon}</div>
-          <h1 class="hidropal-title">HidroPal</h1>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )

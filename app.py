@@ -11,7 +11,7 @@ import streamlit as st
 
 from hidropal import auth, db, styles
 from hidropal.config import supabase_enabled
-from hidropal.pages_ui import analisis, cargar, eliminar, modificar, restaurar
+from hidropal.pages_ui import analisis, cargar, registros
 
 st.set_page_config(
     page_title="HidroPal",
@@ -41,6 +41,7 @@ if not supabase_enabled():
 
 auth.init_cookies()
 editor = auth.is_editor()
+styles.suppress_date_keyboard()
 
 
 # -------------------------
@@ -50,37 +51,32 @@ def _acciones_editor():
     with st.expander("Acciones y respaldo"):
         st.download_button(
             "Descargar CSV", data=db.export_csv(), file_name="datos_pozo.csv",
-            mime="text/csv", width='stretch',
+            mime="text/csv", width="stretch",
         )
-        if st.button("Exportar respaldo a GitHub", width='stretch'):
+        if st.button("Exportar respaldo a GitHub", width="stretch"):
             ok, msg = db.backup_to_github()
             (st.success if ok else st.error)(msg)
-        if st.button("Cerrar sesion", width='stretch'):
+        if st.button("Cerrar sesion", width="stretch"):
             auth.logout()
             st.rerun()
 
 
 # -------------------------
-# Navegacion
+# Navegacion: control segmentado (estado en session_state -> no se resetea)
 # -------------------------
 if editor:
-    # Para el editor, "Datos" va primero: la accion diaria es cargar un dato,
-    # asi que esa es la pestania por defecto al entrar.
-    tab_datos, tab_analisis = st.tabs(["Datos", "Analisis"])
-    with tab_datos:
-        sub = st.tabs(["Cargar", "Modificar", "Eliminar", "Papelera"])
-        with sub[0]:
-            cargar.render()
-        with sub[1]:
-            modificar.render()
-        with sub[2]:
-            eliminar.render()
-        with sub[3]:
-            restaurar.render()
-        st.divider()
-        _acciones_editor()
-    with tab_analisis:
+    seccion = st.segmented_control(
+        "Navegacion", ["Cargar", "Registros", "Analisis"],
+        default="Cargar", label_visibility="collapsed", key="nav",
+    )
+    if seccion == "Registros":
+        registros.render()
+    elif seccion == "Analisis":
         analisis.render()
+    else:
+        cargar.render()
+    st.divider()
+    _acciones_editor()
 else:
     analisis.render()
     st.divider()

@@ -44,7 +44,7 @@ def render():
             {"icon": "🌧️", "label": "Lluvia", "value": f"{float(r['LLUVIA']):.0f}", "unit": "mm"},
             {"icon": "🚰", "label": "Extraccion", "value": f"{float(r['EXTRACCION']):.0f}", "unit": "lts"},
         ])
-        st.info("Para cambiarlos usa la pestania **Modificar**, o elegi otra fecha.")
+        st.info("Para cambiarlos andá a **Registros**, o elegi otra fecha.")
     else:
         with st.container(border=True):
             nivel = st.number_input(

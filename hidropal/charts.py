@@ -11,12 +11,29 @@ from plotly.subplots import make_subplots
 
 from .config import COLOR_PALETTE as C
 
+_FONT = dict(
+    family='-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", '
+    "Roboto, Helvetica, Arial, sans-serif",
+    color="#1C1C1E",
+    size=13,
+)
+_GRID = "#E5E5EA"
+
 _LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    margin=dict(l=10, r=10, t=40, b=10),
+    margin=dict(l=8, r=8, t=36, b=8),
     legend=dict(orientation="h", y=-0.2),
+    font=_FONT,
+    colorway=["#0A3FFF"],
 )
+
+
+def _clean(fig):
+    """Grilla tenue y ejes sin linea cero, en todos los subplots."""
+    fig.update_xaxes(gridcolor=_GRID, zeroline=False)
+    fig.update_yaxes(gridcolor=_GRID, zeroline=False)
+    return fig
 
 
 def _line(df, col, color, name, mode="lines+markers"):
@@ -41,7 +58,7 @@ def fig_serie_temporal(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(_bar(df, "EXTRACCION", C["EXTRACCION"], "Extraccion"), row=3, col=1)
     fig.update_yaxes(autorange="reversed", row=1, col=1)  # nivel invertido
     fig.update_layout(height=620, showlegend=False, **_LAYOUT)
-    return fig
+    return _clean(fig)
 
 
 # 2) Dashboard de 5 paneles
@@ -61,7 +78,7 @@ def fig_dashboard(df: pd.DataFrame) -> go.Figure:
     fig.add_trace(_bar(df, "EXTRACCION", C["EXTRACCION"], "Extraccion"), row=5, col=1)
     fig.update_yaxes(autorange="reversed", row=1, col=1)  # nivel invertido
     fig.update_layout(height=900, showlegend=False, **_LAYOUT)
-    return fig
+    return _clean(fig)
 
 
 # 3) Comparacion de tendencias (multiselect, normalizado min-max)
@@ -97,7 +114,7 @@ def fig_comparacion(df: pd.DataFrame, seleccion: list[str]) -> go.Figure:
             line=dict(color=_VAR_COLOR[var]), marker=dict(color=_VAR_COLOR[var]),
         ))
     fig.update_layout(height=420, **_LAYOUT)
-    return fig
+    return _clean(fig)
 
 
 # 4-5) Scatters de variacion vs (lluvia7d / extraccion)
@@ -111,7 +128,7 @@ def fig_scatter_var(df: pd.DataFrame, x_col: str, x_label: str) -> go.Figure:
     fig.update_layout(
         height=420, xaxis_title=x_label, yaxis_title="dNivel (m)", **_LAYOUT
     )
-    return fig
+    return _clean(fig)
 
 
 # 6) Scatter 2D extraccion x lluvia7d, color por variacion (colorbar)
@@ -127,4 +144,4 @@ def fig_scatter_2d(df: pd.DataFrame) -> go.Figure:
         height=460, xaxis_title="Extraccion (lts)",
         yaxis_title="Lluvia acumulada (mm)", **_LAYOUT,
     )
-    return fig
+    return _clean(fig)
