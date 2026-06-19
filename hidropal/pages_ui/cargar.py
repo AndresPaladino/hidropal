@@ -10,7 +10,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-from .. import db
+from .. import db, styles
 from ..domain import apply_nivel_offset, validate_input_data
 
 _KEYS = ("cargar_nivel", "cargar_lluvia", "cargar_extraccion")
@@ -39,10 +39,11 @@ def render():
     if not existing.empty:
         r = existing.iloc[0]
         st.success(f"Ya cargaste el {fecha.strftime('%d/%m/%Y')}")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Nivel", f"{float(r['NIVEL']):.2f} m")
-        c2.metric("Lluvia", f"{float(r['LLUVIA']):.0f} mm")
-        c3.metric("Extraccion", f"{float(r['EXTRACCION']):.0f} lts")
+        styles.metric_cards([
+            {"icon": "💧", "label": "Nivel", "value": f"{float(r['NIVEL']):.2f}", "unit": "m"},
+            {"icon": "🌧️", "label": "Lluvia", "value": f"{float(r['LLUVIA']):.0f}", "unit": "mm"},
+            {"icon": "🚰", "label": "Extraccion", "value": f"{float(r['EXTRACCION']):.0f}", "unit": "lts"},
+        ])
         st.info("Para cambiarlos usa la pestania **Modificar**, o elegi otra fecha.")
     else:
         with st.container(border=True):

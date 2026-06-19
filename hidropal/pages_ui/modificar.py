@@ -1,59 +1,56 @@
-"""Subtab Modificar: editar una medicion existente (fecha fija)."""
+"""Subtab Modificar: editar la medicion de un dia (elegido por fecha)."""
 from __future__ import annotations
+
+from datetime import date
 
 import numpy as np
 import streamlit as st
 
-from .. import db
-from ..domain import apply_nivel_offset, to_es_date_str, validate_input_data
+from .. import db, styles
+from ..domain import apply_nivel_offset, validate_input_data
 
 
 def render():
     st.subheader("Modificar una medicion")
 
-    df = db.load_active().sort_values("FECHA", ascending=False)
+    df = db.load_active()
     if df.empty:
         st.info("No hay datos para modificar.")
         return
 
-    df = df.copy()
-    df["LABEL"] = (
-        to_es_date_str(df["FECHA"])
-        + "  |  Nivel=" + df["NIVEL"].map(lambda x: f"{x:.2f}m")
-        + "  Lluvia=" + df["LLUVIA"].map(lambda x: f"{x:.0f}mm")
-        + "  Extr=" + df["EXTRACCION"].map(lambda x: f"{x:.0f}lts")
+    fecha = st.date_input(
+        "¿Que dia queres modificar?", value=date.today(), max_value=date.today(),
+        format="DD/MM/YYYY", key="modificar_fecha",
     )
-    label_to_id = dict(zip(df["LABEL"], df["id"]))
-
-    seleccion = st.selectbox(
-        "Registro a modificar", list(label_to_id.keys()),
-        index=None, placeholder="Selecciona un registro",
-    )
-    if not seleccion:
+    sel = df[df["FECHA"].dt.date == fecha] if fecha else df.iloc[0:0]
+    if sel.empty:
+        st.info(f"No hay registro del {fecha.strftime('%d/%m/%Y')}. Elegi otro dia.")
         return
 
-    sel_id = int(label_to_id[seleccion])
-    r = df[df["id"] == sel_id].iloc[0]
+    r = sel.iloc[0]
+    sel_id = int(r["id"])
     nivel_original = float(r["NIVEL"])
 
-    st.info(f"Modificando el {to_es_date_str(df['FECHA'][df['id'] == sel_id]).iloc[0]}")
+    styles.metric_cards([
+        {"icon": "💧", "label": "Nivel", "value": f"{nivel_original:.2f}", "unit": "m"},
+        {"icon": "🌧️", "label": "Lluvia", "value": f"{float(r['LLUVIA']):.0f}", "unit": "mm"},
+        {"icon": "🚰", "label": "Extraccion", "value": f"{float(r['EXTRACCION']):.0f}", "unit": "lts"},
+    ])
 
-    nuevo_nivel = st.number_input("Nivel del agua (m)", value=nivel_original, format="%.2f")
-    st.caption("Si cambias el nivel, se aplica el ajuste de la cinta (-0.17 m).")
-    nueva_lluvia = st.number_input(
-        "Lluvia caida (mm)", value=None if r["LLUVIA"] == 0 else float(r["LLUVIA"]),
-        format="%.2f",
-    )
-    nueva_extraccion = st.number_input(
-        "Volumen extraido (lts)", value=None if r["EXTRACCION"] == 0 else float(r["EXTRACCION"]),
-        format="%.2f",
-    )
-
-    if st.button("Guardar cambios", type="primary"):
-        fecha_actual = r["FECHA"].date()
-        cleaned, errors = validate_input_data(
-            fecha_actual, nuevo_nivel, nueva_lluvia, nueva_extraccion
+    with st.container(border=True):
+        nuevo_nivel = st.number_input("Nivel del agua (m)", value=nivel_original, format="%.2f")
+        st.caption("Si cambias el nivel, se aplica el ajuste de la cinta (-0.17 m).")
+        nueva_lluvia = st.number_input(
+            "Lluvia caida (mm)", value=None if r["LLUVIA"] == 0 else float(r["LLUVIA"]),
+            format="%.2f",
         )
+        nueva_extraccion = st.number_input(
+            "Volumen extraido (lts)", value=None if r["EXTRACCION"] == 0 else float(r["EXTRACCION"]),
+            format="%.2f",
+        )
+
+    if st.button("Guardar cambios", type="primary", width="stretch"):
+        cleaned, errors = validate_input_data(fecha, nuevo_nivel, nueva_lluvia, nueva_extraccion)
         if errors:
             st.error(" - ".join(errors))
             return

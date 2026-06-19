@@ -73,18 +73,29 @@ _CSS = """
     box-shadow: 0 8px 24px rgba(1, 24, 135, 0.06);
   }
 
-  /* Metricas: numeros grandes, centradas, como tarjeta */
-  [data-testid="stMetric"] {
-    text-align: center;
+  /* Tarjetas KPI / resumen (HTML propio) */
+  .kpi-row { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 8px; }
+  .kpi {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
     background: #ffffff;
     border: 1.5px solid var(--hp-border);
     border-radius: 16px;
-    padding: 12px 6px;
+    padding: 14px 18px;
+    box-shadow: 0 4px 14px rgba(1, 24, 135, 0.05);
   }
-  [data-testid="stMetricValue"] {
-    font-size: 1.5rem; font-weight: 800; color: var(--hp-ink);
+  .kpi-l { display: flex; align-items: center; gap: 11px; }
+  .kpi-ico {
+    font-size: 1.25rem; line-height: 1;
+    width: 40px; height: 40px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: #eef3ff;
   }
-  [data-testid="stMetricLabel"] { justify-content: center; }
+  .kpi-label { font-weight: 600; font-size: 1rem; color: #44506b; }
+  .kpi-r { text-align: right; }
+  .kpi-val { font-size: 1.55rem; font-weight: 800; color: var(--hp-ink); line-height: 1.05; }
+  .kpi-unit { font-size: 0.95rem; font-weight: 700; color: #8893ab; margin-left: 2px; }
+  .kpi-delta { font-size: 0.82rem; color: #64748b; margin-top: 3px; }
 
   /* Header hero */
   .hidropal-hero {
@@ -103,6 +114,28 @@ _CSS = """
 
 def inject():
     st.markdown(_CSS, unsafe_allow_html=True)
+
+
+def metric_cards(items: list[dict]):
+    """Renderiza tarjetas KPI/resumen consistentes.
+
+    items: lista de dicts con claves:
+      icon (emoji), label (str), value (str), unit (str, opcional),
+      delta (str, opcional).
+    """
+    html = ['<div class="kpi-row">']
+    for it in items:
+        unit = f'<span class="kpi-unit">{it["unit"]}</span>' if it.get("unit") else ""
+        delta = f'<div class="kpi-delta">{it["delta"]}</div>' if it.get("delta") else ""
+        html.append(
+            '<div class="kpi">'
+            f'<div class="kpi-l"><span class="kpi-ico">{it.get("icon", "")}</span>'
+            f'<span class="kpi-label">{it["label"]}</span></div>'
+            f'<div class="kpi-r"><div class="kpi-val">{it["value"]}{unit}</div>{delta}</div>'
+            "</div>"
+        )
+    html.append("</div>")
+    st.markdown("".join(html), unsafe_allow_html=True)
 
 
 def hero(svg_icon: str):
