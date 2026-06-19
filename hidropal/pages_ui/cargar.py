@@ -64,6 +64,6 @@ def render():
         head = df.sort_values("FECHA", ascending=False).head(10).copy()
         head = head[["FECHA", "NIVEL", "LLUVIA", "EXTRACCION"]]
         st.dataframe(
-            head, hide_index=True, use_container_width=True,
+            head, hide_index=True, width='stretch',
             column_config={"FECHA": st.column_config.DateColumn("FECHA", format="DD/MM/YY")},
         )

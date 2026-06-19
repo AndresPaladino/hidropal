@@ -51,11 +51,23 @@ def _token_valid(token: str, secret: str) -> bool:
 # -------------------------
 # Cookie manager
 # -------------------------
-@st.cache_resource(show_spinner=False)
-def _cookies():
+def init_cookies():
+    """Construye el CookieManager una vez por run. Llamar al inicio de app.py.
+
+    El componente registra un widget al construirse: no puede vivir en una
+    funcion cacheada ni instanciarse dos veces en el mismo run (misma key).
+    """
     import extra_streamlit_components as stx
 
-    return stx.CookieManager(key="hidropal_cookies")
+    st.session_state["_cookie_mgr"] = stx.CookieManager(key="hidropal_cookies")
+
+
+def _cookies():
+    cm = st.session_state.get("_cookie_mgr")
+    if cm is None:
+        init_cookies()
+        cm = st.session_state["_cookie_mgr"]
+    return cm
 
 
 # -------------------------

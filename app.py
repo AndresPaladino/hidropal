@@ -39,6 +39,7 @@ if not supabase_enabled():
     )
     st.stop()
 
+auth.init_cookies()
 editor = auth.is_editor()
 
 
@@ -49,12 +50,12 @@ def _acciones_editor():
     with st.expander("Acciones y respaldo"):
         st.download_button(
             "Descargar CSV", data=db.export_csv(), file_name="datos_pozo.csv",
-            mime="text/csv", use_container_width=True,
+            mime="text/csv", width='stretch',
         )
-        if st.button("Exportar respaldo a GitHub", use_container_width=True):
+        if st.button("Exportar respaldo a GitHub", width='stretch'):
             ok, msg = db.backup_to_github()
             (st.success if ok else st.error)(msg)
-        if st.button("Cerrar sesion", use_container_width=True):
+        if st.button("Cerrar sesion", width='stretch'):
             auth.logout()
             st.rerun()
 
