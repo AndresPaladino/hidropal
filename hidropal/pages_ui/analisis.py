@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from .. import charts, db
+from .. import charts, db, insights
 from ..domain import to_es_date_str
 
 
@@ -14,13 +14,20 @@ def render():
         st.info("Todavia no hay datos cargados.")
         return
 
-    # --- Resumen rapido (ultimo registro) ---
-    ultimo = df.iloc[-1]
+    # --- KPIs de un vistazo ---
+    k = insights.kpis(df)
     c1, c2, c3 = st.columns(3)
-    c1.metric("Nivel", f"{ultimo['NIVEL']:.2f} m")
-    c2.metric("Lluvia", f"{ultimo['LLUVIA']:.0f} mm")
-    c3.metric("Extraccion", f"{ultimo['EXTRACCION']:.0f} lts")
-    st.caption(f"Ultimo registro: {to_es_date_str(df['FECHA']).iloc[-1]}")
+    var = k["variacion_7d"]
+    c1.metric(
+        "Nivel actual", f"{k['nivel_actual']:.2f} m",
+        delta=(f"{var:+.2f} m (7d)" if var is not None else None),
+    )
+    c2.metric("Lluvia del mes", f"{k['lluvia_mes']:.0f} mm")
+    c3.metric("Extraccion del mes", f"{k['extraccion_mes']:.0f} lts")
+    st.caption(
+        f"Ultimo registro: {to_es_date_str(df['FECHA']).iloc[-1]}  ·  "
+        f"{k['registros']} mediciones"
+    )
 
     st.divider()
 

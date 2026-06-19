@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from .config import supabase_cfg
-from .domain import add_derived, date_to_iso, ensure_datetime_es
+from .domain import add_derived, date_to_iso
 
 _DB_COLS = ["id", "fecha", "nivel", "lluvia", "extraccion", "deleted_at"]
 
@@ -62,7 +62,9 @@ def _rows_to_df(rows: list[dict]) -> pd.DataFrame:
             "extraccion": "EXTRACCION",
         }
     )
-    df["FECHA"] = ensure_datetime_es(df["FECHA"])
+    # Supabase devuelve la fecha en ISO (YYYY-MM-DD). NO usar dayfirst aca:
+    # con dayfirst=True pandas invierte dia/mes cuando ambos son <= 12.
+    df["FECHA"] = pd.to_datetime(df["FECHA"], format="%Y-%m-%d", errors="coerce")
     for c in ("NIVEL", "LLUVIA", "EXTRACCION"):
         df[c] = pd.to_numeric(df[c], errors="coerce")
     df["LLUVIA"] = df["LLUVIA"].fillna(0)

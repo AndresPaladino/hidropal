@@ -1,0 +1,64 @@
+name: Backup CSV (Supabase -> rama backups)
+
+# Doble proposito:
+#  1. Respaldo versionado de los datos en la rama `backups`.
+#  2. Keep-alive: la consulta diaria mantiene despierto el proyecto Supabase free.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC todos los dias (~03:00 ART)
+  workflow_dispatch: {}     # permite dispararlo a mano
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias minimas
+        run: pip install --quiet "supabase==2.31.0" "pandas==2.2.3"
+
+      - name: Exportar CSV desde Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_TABLE: mediciones
+        run: python scripts/export_backup.py
+
+      - name: Commitear snapshot a la rama backups
+        run: |
+          set -e
+          git config user.name "hidropal-backup-bot"
+          git config user.email "backup@hidropal.local"
+
+          TS=$(date -u +"%Y-%m-%d %H:%M UTC")
+          # Trabajar sobre una rama 'backups' huerfana/aislada.
+          git fetch origin backups || true
+          if git show-ref --verify --quiet refs/remotes/origin/backups; then
+            git checkout -B backups origin/backups
+          else
+            git checkout --orphan backups
+            git rm -rf --cached . >/dev/null 2>&1 || true
+          fi
+
+          # Mantener en la rama solo los CSV de respaldo.
+          find . -maxdepth 1 -type f ! -name 'datos_pozo*.csv' ! -name '.gitignore' -delete 2>/dev/null || true
+
+          git add datos_pozo.csv datos_pozo_borrados.csv
+          if git diff --cached --quiet; then
+            echo "Sin cambios en los datos; no se commitea."
+          else
+            git commit -m "backup: snapshot $TS"
+            git push origin backups
+          fi
