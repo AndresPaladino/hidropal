@@ -1,11 +1,13 @@
 """Autenticacion de edicion: PIN + cookie via streamlit-cookies-controller.
 
-Modelo: la vista publica es de solo-lectura. Para editar hay que ingresar un
-PIN una sola vez. El token HMAC firmado se guarda en una cookie del browser
-via streamlit-cookies-controller (usa document.cookie desde un iframe con
-allow-same-origin). Las cookies del browser se comparten entre Safari y el
-modo PWA (iPhone home screen), por lo que la sesion persiste al cerrar y
-reabrir la app desde la pantalla de inicio.
+El CookieController debe instanciarse en cada render (init() en app.py) para
+que el componente iframe este activo y reporte los valores de las cookies.
+En el primer render las cookies no estan disponibles aun (el JS es asincrono);
+el componente dispara un rerun automatico cuando las reporta, y en el segundo
+render is_editor() ya las lee correctamente.
+
+Las cookies del browser se comparten entre Safari y el modo PWA de iOS para
+el mismo dominio, por lo que la sesion persiste al cerrar/reabrir la app.
 """
 from __future__ import annotations
 
@@ -54,13 +56,23 @@ def _token_valid(token: str, secret: str) -> bool:
 
 
 # -------------------------
-# Cookie manager (singleton por sesion)
+# Init: llamar al inicio de cada render en app.py
 # -------------------------
-def _get_controller():
-    if "_cookie_ctrl" not in st.session_state:
-        from streamlit_cookies_controller import CookieController
-        st.session_state["_cookie_ctrl"] = CookieController(key="hidropal_cc")
-    return st.session_state["_cookie_ctrl"]
+def init():
+    """Instancia el CookieController en cada render y lo guarda en session_state.
+
+    Debe llamarse al inicio de app.py en cada render (no dentro de un if/cache)
+    para que el componente iframe este presente en el DOM y pueda leer/escribir
+    cookies del browser. El componente dispara un rerun automatico la primera
+    vez que reporta los valores, por lo que is_editor() tendra las cookies
+    disponibles a partir del segundo render.
+    """
+    from streamlit_cookies_controller import CookieController
+    st.session_state["_cc"] = CookieController(key="hidropal_cc")
+
+
+def _ctrl():
+    return st.session_state.get("_cc")
 
 
 # -------------------------
@@ -73,8 +85,11 @@ def is_editor() -> bool:
     cfg = auth_cfg()
     if not cfg:
         return False
+    ctrl = _ctrl()
+    if ctrl is None:
+        return False
     try:
-        token = _get_controller().get(_COOKIE_NAME) or ""
+        token = ctrl.get(_COOKIE_NAME) or ""
     except Exception:
         return False
     if token and _token_valid(token, cfg["cookie_secret"]):
@@ -90,10 +105,13 @@ def try_login(pin: str) -> bool:
         return False
     if not hmac.compare_digest(hash_pin(pin.strip()), cfg["pin_hash"]):
         return False
+    ctrl = _ctrl()
+    if ctrl is None:
+        return False
     token = _make_token(cfg["cookie_secret"], cfg["cookie_days"])
     expires = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=cfg["cookie_days"])
     try:
-        _get_controller().set(_COOKIE_NAME, token, expires=expires)
+        ctrl.set(_COOKIE_NAME, token, expires=expires)
     except Exception:
         pass
     st.session_state["_is_editor"] = True
@@ -102,7 +120,9 @@ def try_login(pin: str) -> bool:
 
 def logout() -> None:
     st.session_state["_is_editor"] = False
-    try:
-        _get_controller().remove(_COOKIE_NAME)
-    except Exception:
-        pass
+    ctrl = _ctrl()
+    if ctrl:
+        try:
+            ctrl.remove(_COOKIE_NAME)
+        except Exception:
+            pass
