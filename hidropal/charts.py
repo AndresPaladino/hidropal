@@ -26,7 +26,25 @@ _LAYOUT = dict(
     legend=dict(orientation="h", y=-0.2),
     font=_FONT,
     colorway=["#0A3FFF"],
+    dragmode=False,  # mobile: que el dedo no haga pan/zoom dentro del grafico
 )
+
+# Config para st.plotly_chart: sin barra de herramientas ni zoom por scroll.
+# Se mantiene el tap (tooltip) pero el grafico no pelea con el scroll de la pagina.
+PLOTLY_CONFIG = {
+    "displayModeBar": False,
+    "scrollZoom": False,
+    "doubleClick": False,
+    "displaylogo": False,
+}
+
+
+def filtrar_rango(df: pd.DataFrame, dias: int | None) -> pd.DataFrame:
+    """Filtra a los ultimos `dias` desde el ultimo registro. None = todo."""
+    if dias is None or df.empty:
+        return df
+    corte = df["FECHA"].max() - pd.Timedelta(days=dias)
+    return df[df["FECHA"] >= corte]
 
 
 def _clean(fig):
@@ -46,6 +64,44 @@ def _line(df, col, color, name, mode="lines+markers"):
 def _bar(df, col, color, name):
     return go.Bar(x=df["FECHA"], y=df[col], name=name, marker_color=color)
 
+
+# =========================================================================
+# Graficas principales (curadas, mobile-first)
+# =========================================================================
+
+# A) Nivel del pozo: linea, eje invertido (mas arriba = mas agua, pedido del usuario)
+def fig_nivel(df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure(_line(df, "NIVEL", C["NIVEL"], "Nivel"))
+    fig.update_yaxes(autorange="reversed", title_text="Nivel (m)")
+    fig.update_layout(height=340, showlegend=False, **_LAYOUT)
+    return _clean(fig)
+
+
+# B) Nivel + Lluvia en un solo grafico con DOBLE eje Y (escalas reales, no
+#    normalizadas): responde "¿la lluvia recupera el pozo?" sin engañar.
+def fig_nivel_lluvia(df: pd.DataFrame) -> go.Figure:
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(_bar(df, "LLUVIA", C["LLUVIA"], "Lluvia (mm)"), secondary_y=True)
+    fig.add_trace(
+        _line(df, "NIVEL", C["NIVEL"], "Nivel (m)"), secondary_y=False
+    )
+    # Nivel invertido a la izquierda; lluvia normal a la derecha, sin grilla.
+    fig.update_yaxes(autorange="reversed", title_text="Nivel (m)", secondary_y=False)
+    fig.update_yaxes(title_text="Lluvia (mm)", secondary_y=True, showgrid=False)
+    fig.update_layout(height=380, **_LAYOUT)
+    return _clean(fig)
+
+
+# C) Extraccion en el tiempo: barras simples.
+def fig_extraccion(df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure(_bar(df, "EXTRACCION", C["EXTRACCION"], "Extraccion"))
+    fig.update_layout(height=300, showlegend=False, yaxis_title="Litros", **_LAYOUT)
+    return _clean(fig)
+
+
+# =========================================================================
+# Graficas avanzadas (plegadas en "Mas analisis")
+# =========================================================================
 
 # 1) Serie temporal: nivel (eje invertido), lluvia, extraccion
 def fig_serie_temporal(df: pd.DataFrame) -> go.Figure:
@@ -81,38 +137,84 @@ def fig_dashboard(df: pd.DataFrame) -> go.Figure:
     return _clean(fig)
 
 
-# 3) Comparacion de tendencias (multiselect, normalizado min-max)
-def variables_para_comparar(df: pd.DataFrame) -> dict:
-    """Mapa nombre -> serie. 'Nivel' usa -NIVEL (igual que el original)."""
-    return {
-        "Nivel": -df["NIVEL"],
-        "Lluvia": df["LLUVIA"],
-        "Extraccion": df["EXTRACCION"],
-        "Variacion de nivel": df["VARIACION_NIVEL"],
-        "Lluvia acumulada (7 dias)": df["LLUVIA_ACUM_7D"],
-    }
-
-
-_VAR_COLOR = {
-    "Nivel": C["NIVEL"],
-    "Lluvia": C["LLUVIA"],
-    "Extraccion": C["EXTRACCION"],
-    "Variacion de nivel": C["VARIACION_NIVEL"],
-    "Lluvia acumulada (7 dias)": C["LLUVIA_ACUM_7D"],
+# 3) Comparacion de tendencias ADAPTATIVA segun cuantas variables se eligen:
+#    1 -> escala real | 2 -> doble eje (escalas reales) | 3+ -> normalizado.
+#    'invert' solo aplica a Nivel (mas arriba = mas agua, pedido del usuario).
+_COMPARABLES = {
+    "Nivel": dict(col="NIVEL", color=C["NIVEL"], unit="m", kind="line", invert=True),
+    "Lluvia": dict(col="LLUVIA", color=C["LLUVIA"], unit="mm", kind="bar", invert=False),
+    "Extraccion": dict(col="EXTRACCION", color=C["EXTRACCION"], unit="lts", kind="bar", invert=False),
+    "Variacion de nivel": dict(col="VARIACION_NIVEL", color=C["VARIACION_NIVEL"], unit="m", kind="line", invert=False),
+    "Lluvia acum. 7d": dict(col="LLUVIA_ACUM_7D", color=C["LLUVIA_ACUM_7D"], unit="mm", kind="line", invert=False),
 }
 
 
+def opciones_comparar() -> list[str]:
+    """Nombres disponibles para el selector del comparador."""
+    return list(_COMPARABLES)
+
+
+def _comp_trace(df, name, y=None, force_line=False, **extra):
+    """Traza (linea o barra) con tooltip que SIEMPRE muestra el valor real,
+    aunque `y` venga normalizada (customdata = serie real)."""
+    m = _COMPARABLES[name]
+    real = df[m["col"]]
+    y = real if y is None else y
+    ht = f"%{{x|%d/%m/%Y}}<br>{name}: %{{customdata:.2f}} {m['unit']}<extra></extra>"
+    common = dict(x=df["FECHA"], name=name, customdata=real, hovertemplate=ht)
+    if m["kind"] == "bar" and not force_line:
+        return go.Bar(y=y, marker_color=m["color"], **common, **extra)
+    return go.Scatter(
+        y=y, mode="lines+markers", line=dict(color=m["color"]),
+        marker=dict(color=m["color"]), **common, **extra,
+    )
+
+
+def _yaxis_kwargs(name, secondary=False):
+    m = _COMPARABLES[name]
+    kw = {"title_text": f"{name} ({m['unit']})"}
+    if secondary:
+        kw["secondary_y"] = True
+        kw["showgrid"] = False
+    if m["invert"]:
+        kw["autorange"] = "reversed"
+    return kw
+
+
 def fig_comparacion(df: pd.DataFrame, seleccion: list[str]) -> go.Figure:
-    variables = variables_para_comparar(df)
+    sel = [s for s in seleccion if s in _COMPARABLES]
+    if not sel:
+        return go.Figure()
+
+    # 1 variable: escala real, una sola.
+    if len(sel) == 1:
+        fig = go.Figure(_comp_trace(df, sel[0]))
+        fig.update_yaxes(**_yaxis_kwargs(sel[0]))
+        fig.update_layout(height=360, showlegend=False, **_LAYOUT)
+        return _clean(fig)
+
+    # 2 variables: doble eje, magnitudes reales (honesto).
+    if len(sel) == 2:
+        left, right = sel
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.add_trace(_comp_trace(df, right), secondary_y=True)
+        fig.add_trace(_comp_trace(df, left), secondary_y=False)
+        _clean(fig)
+        fig.update_yaxes(**_yaxis_kwargs(left))
+        fig.update_yaxes(**_yaxis_kwargs(right, secondary=True))
+        fig.update_layout(height=380, **_LAYOUT)
+        return fig
+
+    # 3+ variables: overlay normalizado 0-100% (compara la FORMA, no la
+    # magnitud); el tooltip sigue mostrando el valor real al tocar.
     fig = go.Figure()
-    for var in seleccion:
-        serie = variables[var]
+    for name in sel:
+        m = _COMPARABLES[name]
+        serie = -df[m["col"]] if m["invert"] else df[m["col"]]
         rng = serie.max() - serie.min()
-        norm = (serie - serie.min()) / rng if rng else serie * 0
-        fig.add_trace(go.Scatter(
-            x=df["FECHA"], y=norm, mode="lines+markers", name=var,
-            line=dict(color=_VAR_COLOR[var]), marker=dict(color=_VAR_COLOR[var]),
-        ))
+        norm = (serie - serie.min()) / rng * 100 if rng else serie * 0
+        fig.add_trace(_comp_trace(df, name, y=norm, force_line=True))
+    fig.update_yaxes(title_text="Relativo (0-100%)")
     fig.update_layout(height=420, **_LAYOUT)
     return _clean(fig)
 

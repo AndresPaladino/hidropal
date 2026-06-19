@@ -60,16 +60,31 @@ _CSS = """
     padding: 4px 4px;
   }
 
-  /* ---- Inputs ---- */
-  .stNumberInput input, .stDateInput input, .stTextInput input {
-    min-height: 3rem;
-    font-size: 1.08rem;
+  /* ---- Inputs ----
+     El borde vive en el wrapper de BaseWeb (no en el <input> interno) para
+     evitar el borde doble: el wrapper ya trae su propio borde y el input otro. */
+  .stNumberInput [data-baseweb="input"],
+  .stNumberInput [data-baseweb="base-input"],
+  .stDateInput [data-baseweb="input"],
+  .stTextInput [data-baseweb="input"] {
     background: #fff !important;
     border: 1px solid var(--hp-line) !important;
     border-radius: 12px !important;
+    overflow: hidden;
+    transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+  }
+  .stNumberInput input, .stDateInput input, .stTextInput input {
+    min-height: 3rem;
+    font-size: 1.08rem;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     color: var(--hp-ink) !important;
   }
-  .stNumberInput input:focus, .stDateInput input:focus, .stTextInput input:focus {
+  /* Anillo de foco una sola vez, en el wrapper */
+  .stNumberInput [data-baseweb="input"]:focus-within,
+  .stDateInput [data-baseweb="input"]:focus-within,
+  .stTextInput [data-baseweb="input"]:focus-within {
     border-color: var(--hp-accent) !important;
     box-shadow: 0 0 0 3px rgba(10,63,255,0.15) !important;
   }
@@ -89,7 +104,7 @@ _CSS = """
     border: 1px solid var(--hp-line);
     background: #fff;
     color: var(--hp-accent);
-    transition: transform .04s ease;
+    transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
   }
   .stButton > button:active { transform: scale(0.98); }
   /* Primario: azul lleno */
@@ -123,6 +138,7 @@ _CSS = """
     color: var(--hp-ink) !important;
     font-weight: 600 !important;
     flex: 1;
+    transition: background 150ms ease-out, box-shadow 150ms ease-out;
   }
   [data-testid="stSegmentedControl"] button[aria-checked="true"] {
     background: #fff !important;
@@ -163,6 +179,20 @@ _CSS = """
   [data-testid="stDataFrame"] { border-radius: 14px; }
 
   hr { border-color: var(--hp-line); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stButton > button, .stDownloadButton > button, .stForm button {
+      transition: none;
+    }
+    [data-testid="stSegmentedControl"] button {
+      transition: none;
+    }
+    .stNumberInput [data-baseweb="input"],
+    .stDateInput [data-baseweb="input"],
+    .stTextInput [data-baseweb="input"] {
+      transition: none;
+    }
+  }
 </style>
 """
 

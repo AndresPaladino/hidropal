@@ -37,37 +37,64 @@ def render():
 
     st.divider()
 
-    # --- Graficas ---
-    st.subheader("Serie temporal")
-    st.plotly_chart(charts.fig_serie_temporal(df), use_container_width=True)
-
-    st.subheader("Dashboard")
-    st.plotly_chart(charts.fig_dashboard(df), use_container_width=True)
-
-    st.subheader("Comparacion de tendencias")
-    opciones = list(charts.variables_para_comparar(df).keys())
-    # st.pills: seleccion multiple por toque, sin teclado (mobile-friendly).
-    seleccion = st.pills(
-        "Variables a comparar", opciones, selection_mode="multi",
-        default=["Nivel", "Lluvia", "Extraccion"],
+    # --- Selector de rango (mobile: evita comprimir años en 360px) ---
+    _RANGOS = {"30 dias": 30, "90 dias": 90, "Todo": None}
+    rango = st.segmented_control(
+        "Rango", list(_RANGOS.keys()), default="90 dias",
+        label_visibility="collapsed", key="rango_analisis",
     )
-    if seleccion:
-        st.plotly_chart(charts.fig_comparacion(df, seleccion), use_container_width=True)
+    dias = _RANGOS.get(rango or "90 dias", 90)
+    dfv = charts.filtrar_rango(df, dias)
 
-    st.subheader("Variacion del nivel vs Lluvia acumulada (7d)")
-    st.plotly_chart(
-        charts.fig_scatter_var(df, "LLUVIA_ACUM_7D", "Lluvia acumulada (mm)"),
-        use_container_width=True,
-    )
+    # --- Graficas principales ---
+    st.subheader("Nivel del pozo")
+    st.caption("Mas arriba = mas agua (el eje esta invertido).")
+    st.plotly_chart(charts.fig_nivel(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
 
-    st.subheader("Variacion del nivel vs Volumen extraido")
-    st.plotly_chart(
-        charts.fig_scatter_var(df, "EXTRACCION", "Extraccion (lts)"),
-        use_container_width=True,
-    )
+    st.subheader("Nivel y lluvia")
+    st.caption("¿La lluvia recupera el pozo? Cada uno con su escala real.")
+    st.plotly_chart(charts.fig_nivel_lluvia(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
 
-    st.subheader("Variacion del nivel segun extraccion y lluvia")
-    st.plotly_chart(charts.fig_scatter_2d(df), use_container_width=True)
+    st.subheader("Extraccion")
+    st.plotly_chart(charts.fig_extraccion(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
+
+    # --- Graficas avanzadas (plegadas) ---
+    with st.expander("Mas analisis"):
+        st.markdown("**Dashboard completo**")
+        st.plotly_chart(charts.fig_dashboard(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
+
+        st.markdown("**Comparacion de tendencias**")
+        # st.pills: seleccion multiple por toque, sin teclado (mobile-friendly).
+        seleccion = st.pills(
+            "Variables a comparar", charts.opciones_comparar(), selection_mode="multi",
+            default=["Nivel", "Lluvia"],
+        )
+        # El grafico se adapta: 1 o 2 variables -> escala real; 3+ -> relativo.
+        if seleccion:
+            n = len(seleccion)
+            if n <= 2:
+                st.caption(f"Mostrando {n} variable(s) con su escala real.")
+            else:
+                st.caption(f"{n} variables en escala relativa (0-100%): compara la forma, no la cantidad. Toca un punto para ver el valor real.")
+            st.plotly_chart(
+                charts.fig_comparacion(dfv, seleccion),
+                use_container_width=True, config=charts.PLOTLY_CONFIG,
+            )
+
+        st.markdown("**Variacion del nivel vs Lluvia acumulada (7d)**")
+        st.plotly_chart(
+            charts.fig_scatter_var(dfv, "LLUVIA_ACUM_7D", "Lluvia acumulada (mm)"),
+            use_container_width=True, config=charts.PLOTLY_CONFIG,
+        )
+
+        st.markdown("**Variacion del nivel vs Volumen extraido**")
+        st.plotly_chart(
+            charts.fig_scatter_var(dfv, "EXTRACCION", "Extraccion (lts)"),
+            use_container_width=True, config=charts.PLOTLY_CONFIG,
+        )
+
+        st.markdown("**Variacion del nivel segun extraccion y lluvia**")
+        st.plotly_chart(charts.fig_scatter_2d(dfv), use_container_width=True, config=charts.PLOTLY_CONFIG)
 
     # --- Tabla completa ---
     with st.expander("Ver tabla de datos"):
