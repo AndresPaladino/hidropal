@@ -60,16 +60,6 @@ def _acciones_editor():
 # -------------------------
 if editor:
     styles.suppress_date_keyboard()
-    # Aviso de setup PWA: solo se muestra si el usuario acaba de loguearse
-    # (session_state reciente, no viene de un token ya guardado en la URL).
-    if st.session_state.get("_show_pwa_tip"):
-        st.info(
-            "**Para usar como app en el celular:** "
-            "tocá Compartir → Agregar a pantalla de inicio *ahora*, "
-            "con esta sesión activa. La URL ya tiene tu acceso guardado.",
-            icon="📱",
-        )
-        st.session_state["_show_pwa_tip"] = False
     seccion = st.segmented_control(
         "Navegacion", ["Cargar", "Registros", "Analisis"],
         default="Cargar", label_visibility="collapsed", key="nav",
@@ -87,7 +77,6 @@ else:
         pin = st.text_input("PIN", type="password", key="login_pin")
         if st.button("Ingresar", type="primary"):
             if auth.try_login(pin):
-                st.session_state["_show_pwa_tip"] = True
                 st.rerun()
             else:
                 st.error("PIN incorrecto.")
