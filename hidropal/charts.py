@@ -60,6 +60,7 @@ def fig_dashboard(df: pd.DataFrame):
     axes[0].plot(df["FECHA"], df["NIVEL"], marker="o", color=C["NIVEL"])
     axes[0].invert_yaxis()
     axes[0].set_title("Nivel de Agua")
+    axes[0].set_ylabel("m")
     axes[0].grid(True)
     axes[0].patch.set_alpha(0.0)
 
@@ -72,16 +73,19 @@ def fig_dashboard(df: pd.DataFrame):
     axes[2].bar(df["FECHA"], df["VARIACION_NIVEL"], color=C["VARIACION_NIVEL"])
     axes[2].axhline(0, color="k", linestyle="--")
     axes[2].set_title("Variación del Nivel")
+    axes[2].set_ylabel("m")
     axes[2].grid(True)
     axes[2].patch.set_alpha(0.0)
 
     axes[3].plot(df["FECHA"], df["LLUVIA_ACUM_7D"], marker="o", color=C["LLUVIA_ACUM_7D"])
     axes[3].set_title("Lluvia acumulada 7 días")
+    axes[3].set_ylabel("mm")
     axes[3].grid(True)
     axes[3].patch.set_alpha(0.0)
 
     axes[4].bar(df["FECHA"], df["EXTRACCION"], color=C["EXTRACCION"])
     axes[4].set_title("Volumen extraído")
+    axes[4].set_ylabel("L")
     axes[4].set_xlabel("Fecha")
     axes[4].grid(True)
     axes[4].patch.set_alpha(0.0)
