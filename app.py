@@ -22,12 +22,8 @@ st.set_page_config(
 
 styles.inject()
 
-_LOGO = os.path.join(os.path.dirname(__file__), "logo_grande.svg")
-try:
-    with open(_LOGO, "r") as f:
-        styles.hero(f.read())
-except OSError:
-    st.title("HidroPal")
+_LOGO = os.path.join(os.path.dirname(__file__), "logo_pozo.png")
+styles.hero(_LOGO)
 
 # -------------------------
 # Pre-requisito: Supabase configurado

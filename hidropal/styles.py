@@ -227,11 +227,23 @@ def suppress_date_keyboard():
     )
 
 
-def hero(svg_icon: str):
+def hero(logo_path: str | None = None):
+    import base64
+    logo_html = ""
+    if logo_path:
+        try:
+            with open(logo_path, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
+            logo_html = (
+                f'<img src="data:image/png;base64,{b64}" '
+                'style="width:28px;height:28px;object-fit:contain">'
+            )
+        except OSError:
+            pass
     st.markdown(
         f"""
         <div class="hidropal-hero">
-          <div class="hidropal-logo">{svg_icon}</div>
+          {logo_html}
           <span class="hidropal-title">HidroPal</span>
         </div>
         """,
