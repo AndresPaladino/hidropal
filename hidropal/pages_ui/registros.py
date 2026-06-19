@@ -70,7 +70,7 @@ def _edit_card(r):
 
     with st.container(border=True):
         nuevo_nivel = st.number_input("Nivel del agua (m)", value=nivel_original, format="%.2f")
-        st.caption("Si cambias el nivel, se aplica el ajuste de la cinta (-0.17 m).")
+        st.caption("Si cambias el nivel, se aplica el ajuste de -0.17 m.")
         nueva_lluvia = st.number_input(
             "Lluvia caida (mm)", value=None if r["LLUVIA"] == 0 else float(r["LLUVIA"]),
             format="%.2f",

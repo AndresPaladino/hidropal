@@ -55,10 +55,10 @@ def render():
             # Preview en vivo del ajuste de cinta
             if nivel is not None and nivel > 0:
                 st.caption(
-                    f"Se guardara con el ajuste de la cinta: **{apply_nivel_offset(nivel):.2f} m**"
+                    f"Se guardara con el ajuste de -0.17 m: **{apply_nivel_offset(nivel):.2f} m**"
                 )
             else:
-                st.caption("Se le resta 0.17 m (ajuste de la cinta) al guardar.")
+                st.caption("Se le resta 0.17 m al guardar.")
 
             with st.expander("¿Llovio o extrajiste agua? (opcional)"):
                 lluvia = st.number_input(
