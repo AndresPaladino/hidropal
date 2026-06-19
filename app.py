@@ -41,7 +41,6 @@ if not supabase_enabled():
 
 auth.init_cookies()
 editor = auth.is_editor()
-styles.suppress_date_keyboard()
 
 
 # -------------------------
@@ -65,6 +64,7 @@ def _acciones_editor():
 # Navegacion: control segmentado (estado en session_state -> no se resetea)
 # -------------------------
 if editor:
+    styles.suppress_date_keyboard()
     seccion = st.segmented_control(
         "Navegacion", ["Cargar", "Registros", "Analisis"],
         default="Cargar", label_visibility="collapsed", key="nav",

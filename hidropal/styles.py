@@ -209,18 +209,21 @@ def suppress_date_keyboard():
     components.html(
         """
         <script>
-        const doc = window.parent.document;
-        function fix() {
-          doc.querySelectorAll('[data-testid="stDateInput"] input').forEach(el => {
-            el.setAttribute('inputmode', 'none');
-            el.setAttribute('autocomplete', 'off');
-          });
-        }
-        fix();
-        new MutationObserver(fix).observe(doc.body, {childList: true, subtree: true});
+        try {
+          const doc = window.parent.document;
+          function fix() {
+            doc.querySelectorAll('[data-testid="stDateInput"] input').forEach(el => {
+              el.setAttribute('inputmode', 'none');
+              el.setAttribute('autocomplete', 'off');
+            });
+          }
+          fix();
+          new MutationObserver(fix).observe(doc.body, {childList: true, subtree: true});
+        } catch(e) {}
         </script>
         """,
         height=0,
+        scrolling=False,
     )
 
 
