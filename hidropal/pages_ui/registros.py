@@ -14,10 +14,10 @@ from ..domain import apply_nivel_offset, validate_input_data
 
 _COLS = ["FECHA", "NIVEL", "LLUVIA", "EXTRACCION"]
 _COLCFG = {
-    "FECHA": st.column_config.DateColumn("Fecha", format="DD/MM/YY"),
-    "NIVEL": st.column_config.NumberColumn("Nivel (m)", format="%.2f"),
-    "LLUVIA": st.column_config.NumberColumn("Lluvia (mm)", format="%.0f"),
-    "EXTRACCION": st.column_config.NumberColumn("Extrac. (lts)", format="%.0f"),
+    "FECHA": st.column_config.DateColumn("FECHA", format="DD/MM/YY"),
+    "NIVEL": st.column_config.NumberColumn("NIVEL", format="%.2f"),
+    "LLUVIA": st.column_config.NumberColumn("LLUVIA", format="%.0f"),
+    "EXTRACCION": st.column_config.NumberColumn("EXTRACCION", format="%.0f"),
 }
 
 

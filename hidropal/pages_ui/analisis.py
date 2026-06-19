@@ -54,5 +54,10 @@ def render():
         )
         st.dataframe(
             tabla, hide_index=True, use_container_width=True,
-            column_config={"FECHA": st.column_config.DateColumn("FECHA", format="DD/MM/YY")},
+            column_config={
+                "FECHA": st.column_config.DateColumn("FECHA", format="DD/MM/YY"),
+                "NIVEL": st.column_config.NumberColumn("NIVEL", format="%.2f"),
+                "LLUVIA": st.column_config.NumberColumn("LLUVIA", format="%.0f"),
+                "EXTRACCION": st.column_config.NumberColumn("EXTRACCION", format="%.0f"),
+            },
         )
