@@ -3,8 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from .. import charts, db, insights, styles
-from ..domain import to_es_date_str
+from .. import charts, db
 
 
 def render():
@@ -13,29 +12,6 @@ def render():
     if df.empty:
         st.info("Todavia no hay datos cargados.")
         return
-
-    # --- KPIs de un vistazo ---
-    k = insights.kpis(df)
-    var = k["variacion_7d"]
-    if var is None:
-        delta = None
-    else:
-        arrow = "↑" if var > 0 else ("↓" if var < 0 else "→")
-        delta = f"{arrow} {abs(var):.2f} m en 7 dias"
-    styles.metric_cards([
-        {"icon": "💧", "label": "Nivel actual", "value": f"{k['nivel_actual']:.2f}",
-         "unit": "m", "delta": delta},
-        {"icon": "🌧️", "label": "Lluvia del mes", "value": f"{k['lluvia_mes']:.0f}",
-         "unit": "mm"},
-        {"icon": "🚰", "label": "Extraccion del mes", "value": f"{k['extraccion_mes']:.0f}",
-         "unit": "lts"},
-    ])
-    st.caption(
-        f"Ultimo registro: {to_es_date_str(df['FECHA']).iloc[-1]}  ·  "
-        f"{k['registros']} mediciones"
-    )
-
-    st.divider()
 
     # --- Selector de rango ---
     _RANGOS = {"30 dias": 30, "90 dias": 90, "Todo": None}
