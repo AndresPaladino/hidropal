@@ -35,7 +35,6 @@ if not supabase_enabled():
     )
     st.stop()
 
-auth.init_cookies()
 editor = auth.is_editor()
 
 
