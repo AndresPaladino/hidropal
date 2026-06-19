@@ -46,32 +46,30 @@ def render():
     dias = _RANGOS.get(rango or "90 dias", 90)
     dfv = charts.filtrar_rango(df, dias)
 
-    # --- Graficas principales ---
+    # --- Graficas ---
     st.subheader("Serie temporal")
     st.pyplot(charts.fig_serie_temporal(dfv))
 
-    # --- Graficas avanzadas (plegadas) ---
-    with st.expander("Mas analisis"):
-        st.subheader("Dashboard")
-        st.pyplot(charts.fig_dashboard(dfv))
+    st.subheader("Dashboard")
+    st.pyplot(charts.fig_dashboard(dfv))
 
-        st.subheader("Comparación de tendencias")
-        seleccion = st.multiselect(
-            "Variables a comparar", charts.opciones_comparar(),
-            placeholder="Selecciona una o más variables",
-            default=["Nivel", "Lluvia", "Extracción"],
-        )
-        if seleccion:
-            st.pyplot(charts.fig_comparacion(dfv, seleccion))
+    st.subheader("Comparación de tendencias")
+    seleccion = st.pills(
+        "Variables a comparar", charts.opciones_comparar(),
+        selection_mode="multi",
+        default=["Nivel", "Lluvia", "Extracción"],
+    )
+    if seleccion:
+        st.pyplot(charts.fig_comparacion(dfv, seleccion))
 
-        st.subheader("Variación del nivel vs Lluvia acumulada (7d)")
-        st.pyplot(charts.fig_scatter_var_lluvia(dfv))
+    st.subheader("Variación del nivel vs Lluvia acumulada (7d)")
+    st.pyplot(charts.fig_scatter_var_lluvia(dfv))
 
-        st.subheader("Variación del nivel vs Volumen extraído")
-        st.pyplot(charts.fig_scatter_var_extraccion(dfv))
+    st.subheader("Variación del nivel vs Volumen extraído")
+    st.pyplot(charts.fig_scatter_var_extraccion(dfv))
 
-        st.subheader("Variación del nivel en función de extracción y lluvia")
-        st.pyplot(charts.fig_scatter_2d(dfv))
+    st.subheader("Variación del nivel en función de extracción y lluvia")
+    st.pyplot(charts.fig_scatter_2d(dfv))
 
     # --- Tabla completa ---
     with st.expander("Ver tabla de datos"):
