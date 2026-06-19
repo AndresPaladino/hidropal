@@ -55,30 +55,36 @@ def fig_serie_temporal(df: pd.DataFrame):
 
 def fig_dashboard(df: pd.DataFrame):
     fig, axes = plt.subplots(5, 1, figsize=(14, 10), sharex=True)
+    fig.patch.set_alpha(0.0)
 
     axes[0].plot(df["FECHA"], df["NIVEL"], marker="o", color=C["NIVEL"])
     axes[0].invert_yaxis()
     axes[0].set_title("Nivel de Agua")
     axes[0].grid(True)
+    axes[0].patch.set_alpha(0.0)
 
     axes[1].plot(df["FECHA"], df["LLUVIA"], marker="o", color=C["LLUVIA"])
     axes[1].set_title("Lluvia Caída")
     axes[1].set_ylabel("mm")
     axes[1].grid(True)
+    axes[1].patch.set_alpha(0.0)
 
     axes[2].bar(df["FECHA"], df["VARIACION_NIVEL"], color=C["VARIACION_NIVEL"])
     axes[2].axhline(0, color="k", linestyle="--")
     axes[2].set_title("Variación del Nivel")
     axes[2].grid(True)
+    axes[2].patch.set_alpha(0.0)
 
     axes[3].plot(df["FECHA"], df["LLUVIA_ACUM_7D"], marker="o", color=C["LLUVIA_ACUM_7D"])
     axes[3].set_title("Lluvia acumulada 7 días")
     axes[3].grid(True)
+    axes[3].patch.set_alpha(0.0)
 
     axes[4].bar(df["FECHA"], df["EXTRACCION"], color=C["EXTRACCION"])
     axes[4].set_title("Volumen extraído")
     axes[4].set_xlabel("Fecha")
     axes[4].grid(True)
+    axes[4].patch.set_alpha(0.0)
 
     _fmt_dates(axes)
     return fig
@@ -123,6 +129,8 @@ def fig_comparacion(df: pd.DataFrame, seleccion: list[str]):
 
 def fig_scatter_var_lluvia(df: pd.DataFrame):
     fig, ax = plt.subplots(figsize=(10, 6))
+    fig.patch.set_alpha(0.0)
+    ax.patch.set_alpha(0.0)
     ax.scatter(df["LLUVIA_ACUM_7D"], df["VARIACION_NIVEL"], color=C["VARIACION_NIVEL"], alpha=0.6)
     ax.axhline(0, color="r", linestyle="--")
     ax.set_xlabel("Lluvia acumulada (mm)")
@@ -133,6 +141,8 @@ def fig_scatter_var_lluvia(df: pd.DataFrame):
 
 def fig_scatter_var_extraccion(df: pd.DataFrame):
     fig, ax = plt.subplots(figsize=(10, 6))
+    fig.patch.set_alpha(0.0)
+    ax.patch.set_alpha(0.0)
     ax.scatter(df["EXTRACCION"], df["VARIACION_NIVEL"], color=C["VARIACION_NIVEL"], alpha=0.6)
     ax.axhline(0, color="r", linestyle="--")
     ax.set_xlabel("Extracción (lts)")
@@ -143,6 +153,8 @@ def fig_scatter_var_extraccion(df: pd.DataFrame):
 
 def fig_scatter_2d(df: pd.DataFrame):
     fig, ax = plt.subplots(figsize=(10, 6))
+    fig.patch.set_alpha(0.0)
+    ax.patch.set_alpha(0.0)
     scatter = ax.scatter(
         df["EXTRACCION"], df["LLUVIA_ACUM_7D"],
         c=df["VARIACION_NIVEL"], cmap="inferno",

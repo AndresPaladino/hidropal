@@ -24,10 +24,10 @@ def render():
 
     # --- Graficas ---
     st.subheader("Serie temporal")
-    st.pyplot(charts.fig_serie_temporal(dfv))
+    st.pyplot(charts.fig_serie_temporal(dfv), transparent=True)
 
     st.subheader("Dashboard")
-    st.pyplot(charts.fig_dashboard(dfv))
+    st.pyplot(charts.fig_dashboard(dfv), transparent=True)
 
     st.subheader("Comparación de tendencias")
     seleccion = st.pills(
@@ -36,16 +36,16 @@ def render():
         default=["Nivel", "Lluvia", "Extracción"],
     )
     if seleccion:
-        st.pyplot(charts.fig_comparacion(dfv, seleccion))
+        st.pyplot(charts.fig_comparacion(dfv, seleccion), transparent=True)
 
     st.subheader("Variación del nivel vs Lluvia acumulada (7d)")
-    st.pyplot(charts.fig_scatter_var_lluvia(dfv))
+    st.pyplot(charts.fig_scatter_var_lluvia(dfv), transparent=True)
 
     st.subheader("Variación del nivel vs Volumen extraído")
-    st.pyplot(charts.fig_scatter_var_extraccion(dfv))
+    st.pyplot(charts.fig_scatter_var_extraccion(dfv), transparent=True)
 
     st.subheader("Variación del nivel en función de extracción y lluvia")
-    st.pyplot(charts.fig_scatter_2d(dfv))
+    st.pyplot(charts.fig_scatter_2d(dfv), transparent=True)
 
     # --- Tabla completa ---
     with st.expander("Ver tabla de datos"):
