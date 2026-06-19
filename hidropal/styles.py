@@ -79,6 +79,8 @@ _CSS = """
   .stNumberInput input, .stDateInput input, .stTextInput input {
     min-height: 3rem;
     font-size: 1.08rem;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
