@@ -43,6 +43,15 @@ jobs:
           git config user.email "backup@hidropal.local"
 
           TS=$(date -u +"%Y-%m-%d %H:%M UTC")
+          TMP_DIR=$(mktemp -d)
+          # CSVs are generated in the previous step: "Exportar CSV desde Supabase".
+          if [ ! -f datos_pozo.csv ] || [ ! -f datos_pozo_borrados.csv ]; then
+            echo "ERROR: el paso 'Exportar CSV desde Supabase' no generó los CSV esperados" >&2
+            exit 1
+          fi
+          cp datos_pozo.csv datos_pozo_borrados.csv "$TMP_DIR"/
+          git restore --source=HEAD --staged --worktree -- datos_pozo.csv datos_pozo_borrados.csv
+
           # Trabajar sobre una rama 'backups' huerfana/aislada.
           git fetch origin backups || true
           if git show-ref --verify --quiet refs/remotes/origin/backups; then
@@ -51,6 +60,10 @@ jobs:
             git checkout --orphan backups
             git rm -rf --cached . >/dev/null 2>&1 || true
           fi
+
+          cp "$TMP_DIR"/datos_pozo.csv .
+          cp "$TMP_DIR"/datos_pozo_borrados.csv .
+          rm -rf "$TMP_DIR"
 
           # Mantener en la rama solo los CSV de respaldo.
           find . -maxdepth 1 -type f ! -name 'datos_pozo*.csv' ! -name '.gitignore' -delete 2>/dev/null || true
