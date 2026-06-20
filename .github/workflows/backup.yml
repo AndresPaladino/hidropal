@@ -44,7 +44,7 @@ jobs:
 
           TS=$(date -u +"%Y-%m-%d %H:%M UTC")
           TMP_DIR=$(mktemp -d)
-          # Los CSV se generan en el paso anterior: "Exportar CSV desde Supabase".
+          # CSVs are generated in the previous step: "Exportar CSV desde Supabase".
           if [ ! -f datos_pozo.csv ] || [ ! -f datos_pozo_borrados.csv ]; then
             echo "ERROR: export_backup.py no generó los CSV esperados" >&2
             exit 1
