@@ -44,6 +44,8 @@ jobs:
 
           TS=$(date -u +"%Y-%m-%d %H:%M UTC")
           TMP_DIR=$(mktemp -d)
+          test -f datos_pozo.csv
+          test -f datos_pozo_borrados.csv
           cp datos_pozo.csv datos_pozo_borrados.csv "$TMP_DIR"/
           git restore --source=HEAD --staged --worktree -- datos_pozo.csv datos_pozo_borrados.csv
 
