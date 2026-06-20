@@ -46,12 +46,10 @@ jobs:
           TMP_DIR=$(mktemp -d)
           # CSVs are generated in the previous step: "Exportar CSV desde Supabase".
           if [ ! -f datos_pozo.csv ] || [ ! -f datos_pozo_borrados.csv ]; then
-            echo "ERROR: export_backup.py no generó los CSV esperados" >&2
+            echo "ERROR: el paso 'Exportar CSV desde Supabase' no generó los CSV esperados" >&2
             exit 1
           fi
           cp datos_pozo.csv datos_pozo_borrados.csv "$TMP_DIR"/
-          test -f "$TMP_DIR/datos_pozo.csv"
-          test -f "$TMP_DIR/datos_pozo_borrados.csv"
           git restore --source=HEAD --staged --worktree -- datos_pozo.csv datos_pozo_borrados.csv
 
           # Trabajar sobre una rama 'backups' huerfana/aislada.
