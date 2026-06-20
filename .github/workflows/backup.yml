@@ -49,7 +49,10 @@ jobs:
             exit 1
           fi
           cp datos_pozo.csv datos_pozo_borrados.csv "$TMP_DIR"/
-          git restore --source=HEAD --staged --worktree -- datos_pozo.csv datos_pozo_borrados.csv
+          test -f "$TMP_DIR/datos_pozo.csv"
+          test -f "$TMP_DIR/datos_pozo_borrados.csv"
+          git restore --source=HEAD --staged --worktree -- datos_pozo.csv datos_pozo_borrados.csv \
+            2>/dev/null || rm -f datos_pozo.csv datos_pozo_borrados.csv
 
           # Trabajar sobre una rama 'backups' huerfana/aislada.
           git fetch origin backups || true
