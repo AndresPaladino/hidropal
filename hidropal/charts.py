@@ -1,6 +1,8 @@
 """Graficas con matplotlib (igual a la version original)."""
 from __future__ import annotations
 
+import matplotlib
+matplotlib.use("Agg")  # ponytail: backend headless, evita segfault en Streamlit Cloud
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd

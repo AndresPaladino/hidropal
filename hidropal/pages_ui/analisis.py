@@ -1,9 +1,15 @@
 """Tab Analisis: tabla + las graficas (vista publica de solo-lectura)."""
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
 import streamlit as st
 
 from .. import charts, db
+
+
+def _plot(fig):
+    st.pyplot(fig, transparent=True)
+    plt.close(fig)  # ponytail: libera la figura, evita fuga de memoria por rerun
 
 
 def render():
@@ -24,10 +30,10 @@ def render():
 
     # --- Graficas ---
     st.subheader("Serie temporal")
-    st.pyplot(charts.fig_serie_temporal(dfv), transparent=True)
+    _plot(charts.fig_serie_temporal(dfv))
 
     st.subheader("Dashboard")
-    st.pyplot(charts.fig_dashboard(dfv), transparent=True)
+    _plot(charts.fig_dashboard(dfv))
 
     st.subheader("Comparación de tendencias")
     seleccion = st.pills(
@@ -36,16 +42,16 @@ def render():
         default=["Nivel", "Lluvia", "Extracción"],
     )
     if seleccion:
-        st.pyplot(charts.fig_comparacion(dfv, seleccion), transparent=True)
+        _plot(charts.fig_comparacion(dfv, seleccion))
 
     st.subheader("Variación del nivel vs Lluvia acumulada (7d)")
-    st.pyplot(charts.fig_scatter_var_lluvia(dfv), transparent=True)
+    _plot(charts.fig_scatter_var_lluvia(dfv))
 
     st.subheader("Variación del nivel vs Volumen extraído")
-    st.pyplot(charts.fig_scatter_var_extraccion(dfv), transparent=True)
+    _plot(charts.fig_scatter_var_extraccion(dfv))
 
     st.subheader("Variación del nivel en función de extracción y lluvia")
-    st.pyplot(charts.fig_scatter_2d(dfv), transparent=True)
+    _plot(charts.fig_scatter_2d(dfv))
 
     # --- Tabla completa ---
     with st.expander("Ver tabla de datos"):
@@ -53,7 +59,7 @@ def render():
             "FECHA", ascending=False
         )
         st.dataframe(
-            tabla, hide_index=True, use_container_width=True,
+            tabla, hide_index=True, width="stretch",
             column_config={
                 "FECHA": st.column_config.DateColumn("FECHA", format="DD/MM/YY"),
                 "NIVEL": st.column_config.NumberColumn("NIVEL", format="%.2f"),
